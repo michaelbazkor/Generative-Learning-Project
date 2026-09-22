@@ -1,0 +1,12 @@
+{
+  "winner": "heun",
+  "reason": "corr(heun,gap)=1.000, corr(partial,gap)=0.410",
+  "theory": "Particle acceleration is the material derivative; Heun FD matches it and equals 2*gap/dt^2.",
+  "rows": {
+    "corr_heun_a_vs_gap": 0.999999998509231,
+    "corr_partial_a_vs_gap": 0.41029290910356486,
+    "corr_fine_a_vs_gap": 0.9975537982286006,
+    "mean_rms_heun": 0.36305680871009827,
+    "mean_rms_partial": 0.5635284185409546
+  }
+}

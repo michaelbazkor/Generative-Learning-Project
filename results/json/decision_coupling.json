@@ -1,0 +1,35 @@
+{
+  "winner": "ot",
+  "reason": "mean ||a||_rms: OT=0.3437, independent=2.0587; mean W2: OT=0.0194, independent=0.0719",
+  "theory": "Perfect OT coupling yields straight characteristics (a\u22480); independent coupling does not.",
+  "rows": [
+    {
+      "coupling": "independent",
+      "n_steps": 8,
+      "w2": 0.07569217287749067,
+      "mean_a_rms": 2.091794714331627,
+      "final_loss": 1.6065874099731445
+    },
+    {
+      "coupling": "independent",
+      "n_steps": 16,
+      "w2": 0.06806588199734678,
+      "mean_a_rms": 2.0256429314613342,
+      "final_loss": 1.6065874099731445
+    },
+    {
+      "coupling": "ot",
+      "n_steps": 8,
+      "w2": 0.017765339165925972,
+      "mean_a_rms": 0.3530016653239727,
+      "final_loss": 0.0203008484095335
+    },
+    {
+      "coupling": "ot",
+      "n_steps": 16,
+      "w2": 0.02104155889153476,
+      "mean_a_rms": 0.3344844179227948,
+      "final_loss": 0.0203008484095335
+    }
+  ]
+}

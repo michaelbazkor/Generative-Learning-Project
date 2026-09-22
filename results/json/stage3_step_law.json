@@ -1,0 +1,130 @@
+[
+  {
+    "law": "uniform",
+    "dataset": "swiss",
+    "w": 1.0,
+    "n_steps": 4,
+    "w2": 0.02680152513086796,
+    "mean_dt": 0.25
+  },
+  {
+    "law": "uniform",
+    "dataset": "pinwheel",
+    "w": 5.0,
+    "n_steps": 4,
+    "w2": 0.05914962438121433,
+    "mean_dt": 0.25
+  },
+  {
+    "law": "uniform",
+    "dataset": "swiss",
+    "w": 1.0,
+    "n_steps": 8,
+    "w2": 0.020268359273672105,
+    "mean_dt": 0.125
+  },
+  {
+    "law": "uniform",
+    "dataset": "pinwheel",
+    "w": 5.0,
+    "n_steps": 8,
+    "w2": 0.0406285646799952,
+    "mean_dt": 0.125
+  },
+  {
+    "law": "p1",
+    "dataset": "swiss",
+    "w": 1.0,
+    "n_steps": 4,
+    "w2": 0.030378386393189447,
+    "mean_dt": 0.25
+  },
+  {
+    "law": "p1",
+    "dataset": "pinwheel",
+    "w": 5.0,
+    "n_steps": 4,
+    "w2": 0.04880137226975049,
+    "mean_dt": 0.25
+  },
+  {
+    "law": "p1",
+    "dataset": "swiss",
+    "w": 1.0,
+    "n_steps": 8,
+    "w2": 0.018402741938829403,
+    "mean_dt": 0.125
+  },
+  {
+    "law": "p1",
+    "dataset": "pinwheel",
+    "w": 5.0,
+    "n_steps": 8,
+    "w2": 0.056731633285060604,
+    "mean_dt": 0.12500000000000003
+  },
+  {
+    "law": "p0.5",
+    "dataset": "swiss",
+    "w": 1.0,
+    "n_steps": 4,
+    "w2": 0.022452377155423114,
+    "mean_dt": 0.25
+  },
+  {
+    "law": "p0.5",
+    "dataset": "pinwheel",
+    "w": 5.0,
+    "n_steps": 4,
+    "w2": 0.048947266008704936,
+    "mean_dt": 0.25
+  },
+  {
+    "law": "p0.5",
+    "dataset": "swiss",
+    "w": 1.0,
+    "n_steps": 8,
+    "w2": 0.019653136357665062,
+    "mean_dt": 0.125
+  },
+  {
+    "law": "p0.5",
+    "dataset": "pinwheel",
+    "w": 5.0,
+    "n_steps": 8,
+    "w2": 0.033750467396341306,
+    "mean_dt": 0.125
+  },
+  {
+    "law": "p1_3",
+    "dataset": "swiss",
+    "w": 1.0,
+    "n_steps": 4,
+    "w2": 0.02933739265799529,
+    "mean_dt": 0.25
+  },
+  {
+    "law": "p1_3",
+    "dataset": "pinwheel",
+    "w": 5.0,
+    "n_steps": 4,
+    "w2": 0.05142776099778714,
+    "mean_dt": 0.25
+  },
+  {
+    "law": "p1_3",
+    "dataset": "swiss",
+    "w": 1.0,
+    "n_steps": 8,
+    "w2": 0.02340098097920416,
+    "mean_dt": 0.125
+  },
+  {
+    "law": "p1_3",
+    "dataset": "pinwheel",
+    "w": 5.0,
+    "n_steps": 8,
+    "w2": 0.04509985265880825,
+    "mean_dt": 0.125
+  }
+]

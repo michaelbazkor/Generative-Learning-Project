@@ -1,0 +1,7 @@
+torch>=2.1.0
+numpy>=1.24
+scipy>=1.10
+matplotlib>=3.7
+tqdm>=4.65
+torchvision>=0.16
+POT>=0.9.0
