@@ -42,6 +42,6 @@ python scripts/run_experiments.py --stage report
 ## Method sketch
 
 At each Heun step, evaluate conditional and unconditional velocities, form
-`a(w) = a_∅ + w (a_c - a_∅)` from the predictor–corrector pair (no extra NFE),
-choose `w_eff` (fixed / γ-damped / acceleration-capped), then choose `Δt` from
-`||a||_rms` with a fixed-`N` budget blend.
+$a(w) = a_\varnothing + w\,(a_c - a_\varnothing)$ from the predictor–corrector pair (no extra NFE),
+choose $w_{\mathrm{eff}}$ (fixed / $\gamma$-damped / acceleration-capped), then choose $\Delta t$ from
+$\lVert a\rVert_{\mathrm{rms}}$ with a fixed-$N$ budget blend.

@@ -6,7 +6,7 @@
 
 ## Goal (fixed)
 
-Test whether **local trajectory acceleration** \(a_t = dv_t/dt\) is a trustworthy, **training-free** signal to co-adapt ODE step sizes and Classifier-Free Guidance (CFG) scales in Optimal Transport Conditional Flow Matching (OT-CFM), especially at low step counts and high guidance.
+Test whether **local trajectory acceleration** $a_t = dv_t/dt$ is a trustworthy, **training-free** signal to co-adapt ODE step sizes and Classifier-Free Guidance (CFG) scales in Optimal Transport Conditional Flow Matching (OT-CFM), especially at low step counts and high guidance.
 
 The written experiment plan was treated as a **hypothesis set**. Datasets, couplings, norms, step laws, and damping laws were scrutinized theoretically and empirically before being locked.
 
@@ -34,25 +34,25 @@ Identity tests: `python tests/test_identities.py` (7/7 passed).
 
 | Issue | Plan text | Theory correction | Decision |
 |---|---|---|---|
-| Acceleration | Proposal: \(\partial_t v\) at fixed \(x\). Plan: Heun pair along the path. | Particle accel is the **material** derivative \(\partial_t v + (\nabla v)v\). Heun FD matches it up to \(O(\Delta t)\). | Prefer Heun (verified Stage 2). |
-| Coupling | “OT-CFM” loss with independent \(x_0,x_1\). | Independent conditionals cross → curved marginal even for a perfect net. True OT needs (mini)batch matching. | Test both (Stage 1). |
-| Step law | \(\Delta t=\eta/(\\|a\\|+\varepsilon)\) (\(p=1\)). | Euler local error \(\propto (\Delta t)^2\\|a\\|\) ⇒ equal error needs \(p=1/2\). Use RMS \(\\|a\\|_2/\sqrt{d}\). | Test \(p\in\{1,1/2,1/3\}\) vs uniform (Stage 3). |
-| Guidance | \(w/(1+\gamma\\|a\\|^2)\) with \(a\) depending on \(w\). | CFG is affine ⇒ \(a(w)=a_\varnothing+w(a_c-a_\varnothing)\) free from cached branches. Cap \(\\|a(w)\\|_{\mathrm{rms}}\le\alpha\). | Test fixed / \(\gamma\) / affine cap (Stage 4). |
-| Budget | Free \(\Delta t\) formula vs fixed \(N\). | Fair ablations use exactly \(N\) steps with blend of proposal and remaining uniform budget. | Implemented in `sample_ode`. |
+| Acceleration | Proposal: $\partial_t v$ at fixed $x$. Plan: Heun pair along the path. | Particle accel is the **material** derivative $\partial_t v + (\nabla v)v$. Heun FD matches it up to $O(\Delta t)$. | Prefer Heun (verified Stage 2). |
+| Coupling | “OT-CFM” loss with independent $x_0,x_1$. | Independent conditionals cross → curved marginal even for a perfect net. True OT needs (mini)batch matching. | Test both (Stage 1). |
+| Step law | $\Delta t=\eta/(\lVert a\rVert+\varepsilon)$ ($p=1$). | Euler local error $\propto (\Delta t)^2\lVert a\rVert$ ⇒ equal error needs $p=1/2$. Use RMS $\lVert a\rVert_2/\sqrt{d}$. | Test $p\in\{1,1/2,1/3\}$ vs uniform (Stage 3). |
+| Guidance | $w/(1+\gamma\lVert a\rVert^2)$ with $a$ depending on $w$. | CFG is affine ⇒ $a(w)=a_\varnothing+w(a_c-a_\varnothing)$ free from cached branches. Cap $\lVert a(w)\rVert_{\mathrm{rms}}\le\alpha$. | Test fixed / $\gamma$ / affine cap (Stage 4). |
+| Budget | Free $\Delta t$ formula vs fixed $N$. | Fair ablations use exactly $N$ steps with blend of proposal and remaining uniform budget. | Implemented in `sample_ode`. |
 
 ---
 
 ## Stage 1 — Coupling (independent vs minibatch OT)
 
-**Setup:** Swiss roll, 3×128 MLP, 3000 Adam steps, Heun, \(w=1\), \(N\in\{8,16\}\).
+**Setup:** Swiss roll, 3×128 MLP, 3000 Adam steps, Heun, $w=1$, $N\in\{8,16\}$.
 
-| Coupling | mean \(\\|a\\|_{\mathrm{rms}}\) | mean \(W_2\) | final loss |
+| Coupling | mean $\lVert a\rVert_{\mathrm{rms}}$ | mean $W_2$ | final loss |
 |---|---|---|---|
 | independent | **2.059** | 0.072 | 1.61 |
 | minibatch OT | **0.344** | **0.019** | **0.020** |
 
 **Decision: `ot`.**  
-**Why (theory + data):** Ideal OT paths have \(a=0\). Independent coupling cannot; OT coupling restores near-straight characteristics and much lower \(W_2\).
+**Why (theory + data):** Ideal OT paths have $a=0$. Independent coupling cannot; OT coupling restores near-straight characteristics and much lower $W_2$.
 
 Artifact: [`results/json/decision_coupling.json`](results/json/decision_coupling.json).
 
@@ -60,42 +60,42 @@ Artifact: [`results/json/decision_coupling.json`](results/json/decision_coupling
 
 ## Stage 2 — Acceleration estimator
 
-On the OT Swiss model, correlate estimators with the Euler–Heun gap \(\\|x_H-x_E\\|\) (local truncation proxy):
+On the OT Swiss model, correlate estimators with the Euler–Heun gap $\lVert x_H-x_E\rVert$ (local truncation proxy):
 
 | Estimator | corr with gap |
 |---|---|
-| Heun / material \(a\) | **1.000** |
-| Fine-step material \(a\) | 0.998 |
-| Partial \(\partial_t v\) (proposal) | 0.410 |
+| Heun / material $a$ | **1.000** |
+| Fine-step material $a$ | 0.998 |
+| Partial $\partial_t v$ (proposal) | 0.410 |
 
 **Decision: `heun`.**  
-**Why (proof):** \(x_H-x_E=\tfrac12(\Delta t)^2\hat a\), so Heun acceleration is exactly the embedded error signal. Partial \(\partial_t v\) ignores \((\nabla v)v\) and is weakly correlated.
+**Why (proof):** $x_H-x_E=\tfrac12(\Delta t)^2\hat a$, so Heun acceleration is exactly the embedded error signal. Partial $\partial_t v$ ignores $(\nabla v)v$ and is weakly correlated.
 
 ---
 
-## Stage 3 — Step-size exponent \(p\)
+## Stage 3 — Step-size exponent $p$
 
-Laws compared at fixed \(N\in\{4,8\}\) with RMS norm and budget blend: uniform, \(p=1\) (written plan), \(p=1/2\) (equal Euler error), \(p=1/3\) (Heun embedded controller). Metrics: mean \(W_2\) on Swiss (\(w=1\)) and pinwheel (\(w=5\)).
+Laws compared at fixed $N\in\{4,8\}$ with RMS norm and budget blend: uniform, $p=1$ (written plan), $p=1/2$ (equal Euler error), $p=1/3$ (Heun embedded controller). Metrics: mean $W_2$ on Swiss ($w=1$) and pinwheel ($w=5$).
 
-| Law | mean \(W_2\) |
+| Law | mean $W_2$ |
 |---|---|
 | **`p0.5`** | **0.0312** |
 | uniform | 0.0367 |
 | `p1_3` | 0.0373 |
 | `p1` (plan formula) | 0.0386 |
 
-**Decision: `adaptive_p` with \(p=1/2\), \(\eta=0.1\).**  
-**Why (theory + data):** Equalizing \((\Delta t)^2\\|a\\|\) predicts \(p=1/2\); it also won empirically. The written \(p=1\) law was **worst**.
+**Decision: `adaptive_p` with $p=1/2$, $\eta=0.1$.**  
+**Why (theory + data):** Equalizing $(\Delta t)^2\lVert a\rVert$ predicts $p=1/2$; it also won empirically. The written $p=1$ law was **worst**.
 
 ---
 
 ## Stage 4 — Guidance damping (pinwheel, CFG)
 
-Class-conditional pinwheel MLP, 10% null dropout. Modes: fixed \(w\), lagged \(\gamma\in\{0.1,0.5\}\), affine acceleration cap. Cap level \(\alpha\) = \(3\times\) median \(\\|a\\|_{\mathrm{rms}}\) at \(w=1\), \(N=8\) ⇒ \(\alpha\approx 0.646\).
+Class-conditional pinwheel MLP, 10% null dropout. Modes: fixed $w$, lagged $\gamma\in\{0.1,0.5\}$, affine acceleration cap. Cap level $\alpha$ = $3\times$ median $\lVert a\rVert_{\mathrm{rms}}$ at $w=1$, $N=8$ ⇒ $\alpha\approx 0.646$.
 
-Mean metrics for \(w\ge 3\):
+Mean metrics for $w\ge 3$:
 
-| Law | mean \(W_2\) | off-support |
+| Law | mean $W_2$ | off-support |
 |---|---|---|
 | **`affine_cap`** | **0.0397** | **0.0925** |
 | `gamma_0.5` | 0.0407 | 0.100 |
@@ -103,34 +103,34 @@ Mean metrics for \(w\ge 3\):
 | fixed | 0.0475 | 0.097 |
 
 **Decision: `affine_cap`.**  
-**Why (theory + data):** Affine CFG makes \(a(w)\) free; capping curvature is the principled soft clamp of \(w\in[1,w_{\max}]\). It beat both \(\gamma\) heuristics and fixed CFG.
+**Why (theory + data):** Affine CFG makes $a(w)$ free; capping curvature is the principled soft clamp of $w\in[1,w_{\max}]$. It beat both $\gamma$ heuristics and fixed CFG.
 
 ---
 
 ## Stage 5 — Factorial M1–M4 on 2D
 
-Winning pieces: OT coupling, Heun \(a\), \(p=1/2\) steps, affine-cap guidance.
+Winning pieces: OT coupling, Heun $a$, $p=1/2$ steps, affine-cap guidance.
 
 | Method | Step | Guidance |
 |---|---|---|
 | M1 | uniform | fixed |
-| M2 | adaptive \(p=1/2\) | fixed |
+| M2 | adaptive $p=1/2$ | fixed |
 | M3 | uniform | affine cap |
-| M4 | adaptive \(p=1/2\) | affine cap |
+| M4 | adaptive $p=1/2$ | affine cap |
 
-Mean pinwheel \(W_2\) over \(N\in\{4,8,12,16\}\), \(w\in\{1.5,3,5,7\}\):
+Mean pinwheel $W_2$ over $N\in\{4,8,12,16\}$, $w\in\{1.5,3,5,7\}$:
 
 | M1 | M2 | M3 | M4 |
 |---|---|---|---|
 | 0.0412 | 0.0431 | 0.0418 | 0.0424 |
 
-On this well-trained OT pinwheel, absolute gaps are small (trajectories are already fairly straight). Adaptive step alone does not help once \(N\ge 8\); damping still reduces effective \(w\) under high guidance (see \(w_{\mathrm{eff}}(t)\) plots).
+On this well-trained OT pinwheel, absolute gaps are small (trajectories are already fairly straight). Adaptive step alone does not help once $N\ge 8$; damping still reduces effective $w$ under high guidance (see $w_{\mathrm{eff}}(t)$ plots).
 
 **Figures:**
 
-- Trajectories at \(w=5\), \(N=8\): [`results/figures/traj_M1_w5_n8.png`](results/figures/traj_M1_w5_n8.png), [`results/figures/traj_M4_w5_n8.png`](results/figures/traj_M4_w5_n8.png)
-- \(W_2\) vs \(N\): [`results/figures/w2_curves.png`](results/figures/w2_curves.png)
-- \(\\|a\\|_{\mathrm{rms}}(t)\), \(\Delta t(t)\), \(w_{\mathrm{eff}}(t)\): [`results/figures/a_profiles.png`](results/figures/a_profiles.png)
+- Trajectories at $w=5$, $N=8$: [`results/figures/traj_M1_w5_n8.png`](results/figures/traj_M1_w5_n8.png), [`results/figures/traj_M4_w5_n8.png`](results/figures/traj_M4_w5_n8.png)
+- $W_2$ vs $N$: [`results/figures/w2_curves.png`](results/figures/w2_curves.png)
+- $\lVert a\rVert_{\mathrm{rms}}(t)$, $\Delta t(t)$, $w_{\mathrm{eff}}(t)$: [`results/figures/a_profiles.png`](results/figures/a_profiles.png)
 
 ---
 
@@ -139,14 +139,14 @@ On this well-trained OT pinwheel, absolute gaps are small (trajectories are alre
 **Compute note:** Host PyTorch was CPU-only (`2.14.0+cpu`) despite an RTX 3050 being present. CUDA wheel install was not available in this session. Image stage used a reduced CPU budget:
 
 - UNet ~1.04M params (`base_channels=24`)
-- 800 OT-CFM steps, batch 64, AdamW \(2\times10^{-4}\)
-- Final train loss \(\approx 0.205\)
-- Eval: 200 samples, \(N\in\{4,8\}\), \(w\in\{1.5,5\}\), feature Fréchet distance (small CNN penultimate layer)
-- Transferred \(\eta=0.1\), \(p=1/2\), \(\alpha=0.646\) **without retuning**
+- 800 OT-CFM steps, batch 64, AdamW $2\times 10^{-4}$
+- Final train loss $\approx 0.205$
+- Eval: 200 samples, $N\in\{4,8\}$, $w\in\{1.5,5\}$, feature Fréchet distance (small CNN penultimate layer)
+- Transferred $\eta=0.1$, $p=1/2$, $\alpha=0.646$ **without retuning**
 
 Mean feature-FD (lower better):
 
-| Method | all settings | \(w=5\) only |
+| Method | all settings | $w=5$ only |
 |---|---|---|
 | M1 | 70.9 | 90.1 |
 | M2 | 102.6 | 127.7 |
@@ -155,9 +155,9 @@ Mean feature-FD (lower better):
 
 **Interpretation:**
 
-1. **Guidance damping transfers.** At high CFG (\(w=5\)), M3 cuts FD from 90 → 63 vs M1. Affine cap keeps \(w_{\mathrm{eff}}\approx 1.2\text{–}1.3\) when image \(\\|a\\|_{\mathrm{rms}}\sim 1.5\) exceeds the 2D-calibrated \(\alpha\). That is *more aggressive* than ideal; a dimension/scale-aware \(\alpha\) (e.g. calibrate on \(w=1\) image trajectories) would likely keep more guidance while still clipping peaks. We did **not** retune, per the transfer protocol.
-2. **Step adaptation alone harms** under the transferred \(\eta\) at low \(N\) (M2 worst). Fixed-\(N\) blend + image curvature magnitudes need a different \(\eta\) or a pure error-tolerance controller. Combining with aggressive capping (M4) is better than M2 but still worse than damping-only (M3) at \(N=4\).
-3. At \(N=8\), \(w=1.5\), **M4 is best** (FD 35.9), suggesting joint adaptation helps once the step budget is less extreme.
+1. **Guidance damping transfers.** At high CFG ($w=5$), M3 cuts FD from 90 → 63 vs M1. Affine cap keeps $w_{\mathrm{eff}}\approx 1.2\text{–}1.3$ when image $\lVert a\rVert_{\mathrm{rms}}\sim 1.5$ exceeds the 2D-calibrated $\alpha$. That is *more aggressive* than ideal; a dimension/scale-aware $\alpha$ (e.g. calibrate on $w=1$ image trajectories) would likely keep more guidance while still clipping peaks. We did **not** retune, per the transfer protocol.
+2. **Step adaptation alone harms** under the transferred $\eta$ at low $N$ (M2 worst). Fixed-$N$ blend + image curvature magnitudes need a different $\eta$ or a pure error-tolerance controller. Combining with aggressive capping (M4) is better than M2 but still worse than damping-only (M3) at $N=4$.
+3. At $N=8$, $w=1.5$, **M4 is best** (FD 35.9), suggesting joint adaptation helps once the step budget is less extreme.
 
 **Figures:** [`results/figures/fd_vs_nfe.png`](results/figures/fd_vs_nfe.png), [`results/figures/fmnist_M1_w5_n8.png`](results/figures/fmnist_M1_w5_n8.png), [`results/figures/fmnist_M4_w5_n8.png`](results/figures/fmnist_M4_w5_n8.png).
 
@@ -167,11 +167,11 @@ Mean feature-FD (lower better):
 
 | Choice | Winner | Primary justification |
 |---|---|---|
-| Coupling | minibatch OT | Theory (\(a\approx 0\)) + \(6\times\) lower \(\\|a\\|_{\mathrm{rms}}\) |
-| Acceleration | Heun material FD | Identity \(x_H-x_E=\tfrac12 dt^2 a\) + corr=1 with gap |
-| Step law | \(\Delta t\propto\\|a\\|_{\mathrm{rms}}^{-1/2}\) | Equal Euler error + best \(W_2\) |
-| Guidance | affine \(\\|a\\|\) cap | Affine CFG algebra + best high-\(w\) \(W_2\) |
-| Image primary method | **M3** (damping-only) under transferred \(\alpha\) | Best mean / high-\(w\) feature-FD on CPU FMNIST |
+| Coupling | minibatch OT | Theory ($a\approx 0$) + $6\times$ lower $\lVert a\rVert_{\mathrm{rms}}$ |
+| Acceleration | Heun material FD | Identity $x_H-x_E=\tfrac12 dt^2 a$ + corr=1 with gap |
+| Step law | $\Delta t\propto\lVert a\rVert_{\mathrm{rms}}^{-1/2}$ | Equal Euler error + best $W_2$ |
+| Guidance | affine $\lVert a\rVert$ cap | Affine CFG algebra + best high-$w$ $W_2$ |
+| Image primary method | **M3** (damping-only) under transferred $\alpha$ | Best mean / high-$w$ feature-FD on CPU FMNIST |
 
 JSON decisions: `results/json/decision_*.json`.
 
