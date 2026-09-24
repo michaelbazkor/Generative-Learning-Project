@@ -25,6 +25,9 @@ def train_model(
     optimizer_name: str = "adam",
     weight_decay: float = 0.0,
     log_every: int = 200,
+    checkpoint_path: Optional[Path] = None,
+    checkpoint_every: int = 0,
+    checkpoint_meta: Optional[dict] = None,
 ) -> dict:
     model.to(device).train()
     if optimizer_name == "adamw":
@@ -65,6 +68,17 @@ def train_model(
         if step % log_every == 0 or step == steps - 1:
             history.append({"step": step, "loss": float(loss.item())})
             pbar.set_postfix(loss=float(loss.item()))
+        if (
+            checkpoint_path is not None
+            and checkpoint_every > 0
+            and step > 0
+            and step % checkpoint_every == 0
+        ):
+            save_checkpoint(
+                model,
+                checkpoint_path,
+                {"step": step, "loss": float(loss.item()), **(checkpoint_meta or {})},
+            )
 
     return {"history": history, "final_loss": history[-1]["loss"] if history else None}
 

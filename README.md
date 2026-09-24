@@ -29,6 +29,7 @@ python scripts/run_experiments.py --stage step
 python scripts/run_experiments.py --stage guidance
 python scripts/run_experiments.py --stage factorial
 python scripts/run_experiments.py --stage fmnist
+python scripts/run_experiments.py --stage cifar
 python scripts/run_experiments.py --stage report
 ```
 

@@ -1,4 +1,4 @@
-"""Synthetic 2D distributions and Fashion-MNIST loaders."""
+"""Synthetic 2D distributions, Fashion-MNIST, and CIFAR-10 loaders."""
 
 from __future__ import annotations
 
@@ -102,6 +102,30 @@ def make_fashion_mnist_loaders(
     )
     train = datasets.FashionMNIST(root, train=True, download=True, transform=tfm)
     test = datasets.FashionMNIST(root, train=False, download=True, transform=tfm)
+    train_loader = DataLoader(
+        train, batch_size=batch_size, shuffle=True, drop_last=True, num_workers=num_workers
+    )
+    test_loader = DataLoader(
+        test, batch_size=batch_size, shuffle=False, drop_last=False, num_workers=num_workers
+    )
+    return train_loader, test_loader, 10
+
+
+def make_cifar10_loaders(
+    batch_size: int = 128,
+    root: str = "data",
+    num_workers: int = 0,
+):
+    from torchvision import datasets, transforms
+
+    tfm = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),  # [-1, 1]
+        ]
+    )
+    train = datasets.CIFAR10(root, train=True, download=True, transform=tfm)
+    test = datasets.CIFAR10(root, train=False, download=True, transform=tfm)
     train_loader = DataLoader(
         train, batch_size=batch_size, shuffle=True, drop_last=True, num_workers=num_workers
     )

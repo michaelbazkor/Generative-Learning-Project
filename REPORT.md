@@ -163,6 +163,29 @@ Mean feature-FD (lower better):
 
 ---
 
+## Stage 7 — CIFAR-10 transfer
+
+Same M1–M4 sampler as Stages 5–6: OT coupling, Heun $a$, $p=1/2$, affine cap. Transferred $\eta=0.1$ and $\alpha=0.646$ with no retune.
+
+**Compute:** RTX 3050 Laptop (4GB), PyTorch `2.14.0+cu126`. UNet ~1.04M params (`in_channels=3`, `base_channels=24`). 4000 OT-CFM steps, batch 32, AdamW $2\times 10^{-4}$. Final train loss $\approx 0.190$. Eval: 500 samples, $N\in\{4,8\}$, $w\in\{1.5,5\}$, feature Frechet distance from a small RGB CNN (2 epochs, penultimate layer).
+
+Mean feature-FD (lower better):
+
+| Method | all settings | $w=5$ only |
+|---|---|---|
+| M1 | 13.4 | 12.1 |
+| M2 | 19.7 | 17.7 |
+| **M3** | **13.0** | **11.0** |
+| M4 | 18.4 | 16.3 |
+
+At $N=8$, $w=5$ the order is M3 (8.8), M4 (9.4), M1 (10.1), M2 (11.4). At $N=4$ the adaptive step is much worse (M2 FD 32.0 at $w=1.5$, 24.1 at $w=5$).
+
+**Interpretation:** Damping still helps, and it is milder than on Fashion-MNIST. At $w=5$ the cap moves mean $w_{\mathrm{eff}}$ from 5 down to about 2.5–2.8 (M3), while mean $\Vert a\Vert_{\mathrm{rms}}$ stays near 1.6, above $\alpha$, so many steps are already over the cap at $w=1$. Step adaptation alone (M2) again hurts under the transferred $\eta$, mostly at $N=4$. Joint adaptation (M4) beats fixed guidance at $N=8$, $w=5$, and still loses to damping-only.
+
+**Figures:** [`results/figures/fd_vs_nfe_cifar.png`](results/figures/fd_vs_nfe_cifar.png), [`results/figures/cifar_M1_w5_n8.png`](results/figures/cifar_M1_w5_n8.png), [`results/figures/cifar_M4_w5_n8.png`](results/figures/cifar_M4_w5_n8.png).
+
+---
+
 ## Final configuration
 
 | Choice | Winner | Primary justification |
@@ -171,7 +194,7 @@ Mean feature-FD (lower better):
 | Acceleration | Heun material FD | Identity $x_H-x_E=\frac{1}{2}(\Delta t)^2\cdot\hat{a}$ + corr=1 with gap |
 | Step law | $\Delta t\propto\Vert a\Vert_{\mathrm{rms}}^{-1/2}$ | Equal Euler error + best $W_2$ |
 | Guidance | affine $\Vert a\Vert$ cap | Affine CFG algebra + best high-$w$ $W_2$ |
-| Image primary method | **M3** (damping-only) under transferred $\alpha$ | Best mean / high-$w$ feature-FD on CPU FMNIST |
+| Image primary method | **M3** (damping-only) under transferred $\alpha$ | Best mean / high-$w$ feature-FD on FMNIST and CIFAR-10 |
 
 JSON decisions: `results/json/decision_*.json`.
 
@@ -188,6 +211,7 @@ python tests/test_identities.py
 python scripts/run_experiments.py --all
 # Or stage-by-stage / eval-only after training:
 python scripts/run_experiments.py --stage fmnist --fmnist-eval-only
+python scripts/run_experiments.py --stage cifar
 python scripts/run_experiments.py --stage report
 ```
 

@@ -14,7 +14,13 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.data import make_2d_loaders, make_fashion_mnist_loaders, sample_pinwheel, sample_swiss_roll
+from src.data import (
+    make_2d_loaders,
+    make_cifar10_loaders,
+    make_fashion_mnist_loaders,
+    sample_pinwheel,
+    sample_swiss_roll,
+)
 from src.evaluate import eval_off_support, eval_w2, generate_2d
 from src.metrics import feature_stats, frechet_distance, train_feature_extractor
 from src.models import VelocityMLP, VelocityUNet, count_parameters
@@ -537,7 +543,7 @@ def _save_image_grid(images: torch.Tensor, path: Path, nrow: int = 8):
     plt.imsave(path, canvas.numpy(), cmap="gray")
 
 
-def _plot_fd_pareto(rows, path: Path):
+def _plot_fd_pareto(rows, path: Path, title: str = "Fashion-MNIST quality vs cost"):
     fig, ax = plt.subplots(figsize=(6, 4))
     for m in ("M1", "M2", "M3", "M4"):
         pts = [(r["nfe_per_sample"], r["fd"]) for r in rows if r["method"] == m]
@@ -548,10 +554,157 @@ def _plot_fd_pareto(rows, path: Path):
     ax.set_xlabel("NFE (network forwards per sample trajectory)")
     ax.set_ylabel("Feature Fréchet distance")
     ax.legend()
-    ax.set_title("Fashion-MNIST quality vs cost")
+    ax.set_title(title)
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
+
+
+def _save_rgb_grid(images: torch.Tensor, path: Path, nrow: int = 8):
+    imgs = ((images + 1) / 2).clamp(0, 1).cpu()
+    n, _, h, w = imgs.shape
+    ncol = nrow
+    nrow_g = int(np.ceil(n / ncol))
+    canvas = torch.ones(3, nrow_g * h, ncol * w)
+    for i in range(n):
+        r, c = divmod(i, ncol)
+        canvas[:, r * h : (r + 1) * h, c * w : (c + 1) * w] = imgs[i]
+    plt.imsave(path, canvas.permute(1, 2, 0).numpy())
+
+
+# ---------------------------------------------------------------------------
+# Stage 7: CIFAR-10 transfer of M1-M4
+# ---------------------------------------------------------------------------
+# Same sampler as Stages 5-6. Alpha is the Stage 6 transfer value, not a retune.
+STAGE6_ALPHA = 0.646
+
+
+def stage_cifar(
+    coupling: str,
+    step_mode: str,
+    step_p: float,
+    guidance_mode: str = "affine_cap",
+    alpha: float = STAGE6_ALPHA,
+    gamma: float = 0.5,
+    steps: int | None = None,
+    batch_size: int = 64,
+    skip_train: bool = False,
+):
+    device = device_of_choice()
+    print("device", device)
+    on_gpu = device.type == "cuda"
+    # 4GB laptop GPU: keep the UNet at the Fashion-MNIST width.
+    bs = 32 if on_gpu else 16
+    base_channels = 24
+    try:
+        train_loader, test_loader, n_classes = make_cifar10_loaders(batch_size=bs)
+    except Exception as e:
+        print("CIFAR-10 download/load failed:", e)
+        return {"error": str(e)}
+
+    model = VelocityUNet(
+        in_channels=3,
+        base_channels=base_channels,
+        channel_mult=(1, 2, 4),
+        n_classes=n_classes,
+    )
+    n_params = count_parameters(model)
+    print("UNet params", n_params)
+    ckpt_path = CKPT / "cifar10.pt"
+    arch = {
+        "in_channels": 3,
+        "base_channels": base_channels,
+        "n_classes": n_classes,
+        "params": n_params,
+    }
+    if skip_train and ckpt_path.exists():
+        print("loading checkpoint", ckpt_path)
+        blob = torch.load(ckpt_path, map_location=device, weights_only=False)
+        saved = blob.get("meta", {})
+        if saved.get("base_channels") and saved["base_channels"] != base_channels:
+            base_channels = int(saved["base_channels"])
+            model = VelocityUNet(
+                in_channels=3,
+                base_channels=base_channels,
+                channel_mult=(1, 2, 4),
+                n_classes=n_classes,
+            )
+        model.load_state_dict(blob["state_dict"])
+        meta = saved
+    else:
+        if steps is None:
+            steps = min(len(train_loader) * (8 if on_gpu else 1), 8000 if on_gpu else 800)
+        print(f"training steps={steps} batch={bs} device={device}")
+        meta = train_model(
+            model, train_loader, steps=steps, lr=2e-4, device=device, coupling=coupling,
+            conditional=True, null_prob=0.1, null_index=n_classes,
+            optimizer_name="adamw", weight_decay=0.01, log_every=50,
+            checkpoint_path=ckpt_path, checkpoint_every=200, checkpoint_meta=arch,
+        )
+        meta = {**arch, **meta}
+        save_checkpoint(model, ckpt_path, meta)
+    model.eval()
+
+    feat_epochs = 2 if on_gpu else 1
+    feat = train_feature_extractor(
+        train_loader, device, epochs=feat_epochs, in_channels=3
+    )
+    real_imgs = []
+    for x, _ in test_loader:
+        real_imgs.append(x)
+        if sum(t.shape[0] for t in real_imgs) >= 5000:
+            break
+    real = torch.cat(real_imgs, dim=0)[:5000]
+    mu_r, sig_r = feature_stats(feat, real, device=device)
+
+    # Stages 5-6 locked M3/M4 to the affine cap even after the Stage 4 rerun.
+    methods = {
+        "M1": dict(step_mode="uniform", guidance_mode="fixed"),
+        "M2": dict(step_mode=step_mode, step_p=step_p, guidance_mode="fixed"),
+        "M3": dict(step_mode="uniform", guidance_mode=guidance_mode, gamma=gamma, alpha=alpha),
+        "M4": dict(step_mode=step_mode, step_p=step_p, guidance_mode=guidance_mode, gamma=gamma, alpha=alpha),
+    }
+    rows = []
+    n_samples = 500 if on_gpu else 128
+    eval_ns = (4, 8)
+    eval_ws = (1.5, 5.0)
+    chunk = 32 if on_gpu else 8
+    print(f"eval n_samples={n_samples} ns={eval_ns} alpha={alpha}")
+    for mname, cfg in methods.items():
+        for n_steps in eval_ns:
+            for w in eval_ws:
+                field = VelocityField(model, guidance=w, conditioned=True)
+                xs = []
+                nfe_per = 0
+                a_all, w_all = [], []
+                for start in range(0, n_samples, chunk):
+                    b = min(chunk, n_samples - start)
+                    x0 = torch.randn(b, 3, 32, 32, device=device)
+                    c = torch.randint(0, n_classes, (b,), device=device)
+                    x, tr, _ = sample_ode(
+                        field, x0, c=c, n_steps=n_steps, method="heun", w=w, eta=0.1, **cfg,
+                    )
+                    xs.append(x.clamp(-1, 1).cpu())
+                    nfe_per = tr.nfe
+                    a_all.extend(tr.a_rms)
+                    w_all.extend(tr.w_eff)
+                x = torch.cat(xs, dim=0)
+                mu_g, sig_g = feature_stats(feat, x, device=device)
+                fd = frechet_distance(mu_r, sig_r, mu_g, sig_g)
+                row = {
+                    "method": mname, "n": n_steps, "w": w, "fd": fd,
+                    "nfe_per_sample": nfe_per,
+                    "mean_a": float(np.mean(a_all)), "mean_w_eff": float(np.mean(w_all)),
+                    "n_samples": n_samples, "device": str(device), "alpha": alpha,
+                }
+                rows.append(row)
+                print(row, flush=True)
+                if mname in ("M1", "M4") and n_steps == 8 and w == 5.0:
+                    _save_rgb_grid(x[:64], FIG / f"cifar_{mname}_w5_n8.png")
+
+    (JSON / "stage7_cifar.json").write_text(json.dumps({"meta": meta, "rows": rows}, indent=2))
+    _plot_fd_pareto(rows, FIG / "fd_vs_nfe_cifar.png", title="CIFAR-10 quality vs cost")
+    return rows
 
 
 def build_report():
@@ -637,10 +790,12 @@ def build_report():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--stage", default="all",
-                        choices=["all", "coupling", "estimator", "step", "guidance", "factorial", "fmnist", "report"])
+                        choices=["all", "coupling", "estimator", "step", "guidance", "factorial", "fmnist", "cifar", "report"])
     parser.add_argument("--steps", type=int, default=3000)
     parser.add_argument("--fmnist-epochs", type=int, default=8)
     parser.add_argument("--fmnist-eval-only", action="store_true")
+    parser.add_argument("--cifar-steps", type=int, default=None)
+    parser.add_argument("--cifar-eval-only", action="store_true")
     args = parser.parse_args()
 
     coupling = "ot"
@@ -695,6 +850,14 @@ def main():
         stage_fmnist(
             coupling, step_mode, step_p, guidance_mode, alpha, gamma,
             epochs=args.fmnist_epochs, skip_train=args.fmnist_eval_only,
+        )
+
+    if args.stage in ("all", "cifar"):
+        # M3/M4 stay on the Stage 5-6 affine cap and the Stage 6 alpha.
+        stage_cifar(
+            coupling, step_mode, step_p, guidance_mode="affine_cap",
+            alpha=STAGE6_ALPHA, gamma=0.5,
+            steps=args.cifar_steps, skip_train=args.cifar_eval_only,
         )
 
     if args.stage in ("all", "report"):

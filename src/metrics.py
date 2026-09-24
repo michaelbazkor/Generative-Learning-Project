@@ -76,10 +76,10 @@ def off_support_rate(
 class FMNISTFeatureExtractor(nn.Module):
     """Small CNN classifier; penultimate layer used for Fréchet distance."""
 
-    def __init__(self, n_classes: int = 10):
+    def __init__(self, n_classes: int = 10, in_channels: int = 1):
         super().__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(1, 32, 3, padding=1),
+            nn.Conv2d(in_channels, 32, 3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2),
             nn.Conv2d(32, 64, 3, padding=1),
@@ -140,8 +140,9 @@ def train_feature_extractor(
     device: torch.device,
     epochs: int = 3,
     lr: float = 1e-3,
+    in_channels: int = 1,
 ) -> FMNISTFeatureExtractor:
-    model = FMNISTFeatureExtractor().to(device)
+    model = FMNISTFeatureExtractor(in_channels=in_channels).to(device)
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     model.train()
     for _ in range(epochs):
