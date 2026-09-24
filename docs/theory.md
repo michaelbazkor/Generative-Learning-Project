@@ -126,17 +126,31 @@ which still grows with $\Delta t$. It does not hold the error constant.
 
 **Dimension.** If each coordinate of $a$ is size $\sigma$, then $\Vert a \Vert_2 \approx \sigma\sqrt{d}$ while $\Vert a \Vert_{\mathrm{rms}} \approx \sigma$. The RMS norm is the one that can use the same $\eta$ in 2D and in images.
 
-**Fixed budget.** A free $\Delta t$ does not spend a prescribed number of steps $N$. With $n_{\mathrm{left}}$ steps and time $1-t$ still unused, the implemented step is the average of the equal-error proposal and the uniform remainder, then projected into the allowed range:
+**The step that is proved.** With $p = 1/2$ and a small $\varepsilon > 0$,
 
-$$\Delta t^{\mathrm{prop}} = \frac{\eta}{\Vert a \Vert_{\mathrm{rms}}^{p} + \varepsilon} .$$
+$$\Delta t^{\mathrm{prop}} = \frac{\eta}{\Vert a \Vert_{\mathrm{rms}}^{1/2} + \varepsilon} .$$
 
-$$u = 0.5\cdot(\Delta t^{\mathrm{prop}} + (1-t)/n_{\mathrm{left}}) , \qquad \Delta t = \mathrm{clip}(u, \Delta t_{\min}, \min(\Delta t_{\max}, 1-t)) .$$
+That is the whole equal-error rule. $\eta$ is the tolerance, rewritten so that $\frac{1}{2}(\Delta t^{\mathrm{prop}})^2\cdot\Vert a \Vert$ stays near a constant.
 
-The last step is set to $1-t$, so every trajectory uses exactly $N$ accepted steps and ends at $t = 1$. The average is a design choice; the exponent $p = 1/2$ is the part justified above.
+**Why a budget appeared at all.** The ablation grid asks every sampler to use the same count $N$. A free $\Delta t^{\mathrm{prop}}$ does not do that: high curvature takes many short steps, low curvature takes few long ones, and the total count is an output, not an input. Comparing "adaptive" against "uniform $N$" is then not a comparison at equal cost.
+
+If the curvature at the $N$ future nodes were known, the same error rule plus the constraint $\sum_{k=1}^{N}\Delta t_k = 1$ would give one normalization, not an average:
+
+$$\Delta t_k = \frac{\Vert a_k \Vert^{-1/2}}{\sum_{j=1}^{N}\Vert a_j \Vert^{-1/2}} .$$
+
+Proof: local Euler error $\frac{1}{2}(\Delta t_k)^2\Vert a_k \Vert$ is the same for every $k$ exactly when $\Delta t_k \propto \Vert a_k \Vert^{-1/2}$, and the display above is that proportion forced to sum to $1$.
+
+The code did **not** use this. Future $\Vert a_j \Vert$ are unknown, so it replaced the sum by a 50/50 mix of $\Delta t^{\mathrm{prop}}$ and the leftover uniform piece $(1-t)/n_{\mathrm{left}}$. That mix is not implied by the error bound. It weakens $\Delta t^{\mathrm{prop}}$ toward a uniform grid and should not be read as part of the proof. The experiments still ran it, only so every method spent exactly $N$ steps.
 
 ---
 
-## 6. Affine CFG, and the equation for $w^{\star}$
+## 6. Adaptive guidance, in one equation
+
+At a trial step the two cached branches give accelerations $a_{\emptyset}$ and $a_c$. Write $a_{\Delta} = a_c - a_{\emptyset}$ and $a(w) = a_{\emptyset} + w\cdot a_{\Delta}$. The requested scale is $w_{\max}$. The adaptive scale is the largest value in $[1, w_{\max}]$ whose acceleration stays under a fixed cap $\alpha$:
+
+$$w^{\star} = \max\{ w \in [1, w_{\max}] : \Vert a_{\emptyset} + w\cdot a_{\Delta} \Vert_{\mathrm{rms}} \le \alpha \} .$$
+
+If that set is empty, no allowed scale meets the cap, and $w^{\star}$ is whichever endpoint of $[1, w_{\max}]$ has the smaller RMS acceleration. Everything below only computes this maximum. It is not a second rule.
 
 Classifier-free guidance is affine in the scale:
 
@@ -148,13 +162,9 @@ $$a(w) = a_{\emptyset} + w\cdot a_{\Delta} , \qquad a_{\Delta} := a_c - a_{\empt
 
 with no extra network evaluation. This $a(w)$ is the acceleration of the combined field along that trial. It is not the material acceleration of $v_c$ or $v_{\emptyset}$ along their own trajectories. In particular, $a_c = 0$ and $a_{\emptyset} = 0$ along their own paths does **not** imply $a(w) = 0$ on the guided path, because the guided state $\tilde{x}$ depends on $w$.
 
-### 6.1 The constraint
+### 6.1 How the maximum is evaluated
 
-We want the **largest** guidance in the allowed interval that respects a curvature budget:
-
-$$w^{\star} = \max\{ w \in [1, w_{\max}] : \Vert a(w) \Vert_{\mathrm{rms}} \le \alpha \} ,$$
-
-when that set is nonempty. Larger $w$ is the requested guidance; we only cut it to meet the cap. If the set is empty, no allowed scale meets the cap, and we keep the endpoint of $[1, w_{\max}]$ with the smaller RMS acceleration.
+The set in the definition is an interval, because $\Vert a_{\emptyset} + w\cdot a_{\Delta} \Vert_{\mathrm{rms}}^2$ is a quadratic in $w$ that opens upwards (Section 6.2). Its right endpoint inside $[1, w_{\max}]$ is what the maximum returns. When that endpoint is a root $w_{+}$ of $\Vert a(w) \Vert_{\mathrm{rms}} = \alpha$, one has $w^{\star} = \mathrm{clip}(w_{+}, 1, w_{\max})$. The clip is only that sentence: it does not change the definition.
 
 ### 6.2 Expanding the norm
 
@@ -223,6 +233,7 @@ This rule is a heuristic. It does not solve Section 6.1. It also depends on $a$,
 | Heun $\hat{a} = a + O(\Delta t)$ | Proved (Section 3) |
 | $x_H - x_E = \frac{1}{2}(\Delta t)^2\cdot\hat{a}$ | Identity (Section 4) |
 | Equal Euler error $\Rightarrow$ $p = 1/2$ | Proved (Section 5) |
-| $w^{\star} = \mathrm{clip}(w_{+}, 1, w_{\max})$ when the feasible interval meets $[1, w_{\max}]$ | Proved (Section 6.4) |
-| $\gamma$ damper without a square on $\Vert a \Vert$ | The plan's formula; not the solution of the cap |
-| Fixed budget of $N$ steps (average of proposal and uniform remainder) | Design choice (Section 5), not a theorem |
+| $w^{\star} = \max\{w\in[1,w_{\max}]:\Vert a_{\emptyset}+w\cdot a_{\Delta}\Vert_{\mathrm{rms}}\le\alpha\}$ | Definition (Section 6); the clip only evaluates it |
+| $\gamma$ damper without a square on $\Vert a \Vert$ | The plan's formula; not the definition of $w^{\star}$ |
+| $\Delta t_k \propto \Vert a_k \Vert^{-1/2}$ renormalized to sum to $1$ | Follows from equal Euler error plus a fixed budget (Section 5) |
+| 50/50 mix of $\Delta t^{\mathrm{prop}}$ and a uniform leftover | Used in the code so every run spends $N$ steps; not derived |
