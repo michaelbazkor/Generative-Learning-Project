@@ -156,7 +156,7 @@ Mean feature-FD (lower better):
 **Interpretation:**
 
 1. **Guidance damping transfers.** At high CFG ($w=5$), M3 cuts FD from 90 → 63 vs M1. Affine cap keeps $w_{\mathrm{eff}}\approx 1.2\text{–}1.3$ when image $\lVert a\rVert_{\mathrm{rms}}\sim 1.5$ exceeds the 2D-calibrated $\alpha$. That is *more aggressive* than ideal; a dimension/scale-aware $\alpha$ (e.g. calibrate on $w=1$ image trajectories) would likely keep more guidance while still clipping peaks. We did **not** retune, per the transfer protocol.
-2. **Step adaptation alone harms** under the transferred $\eta$ at low $N$ (M2 worst). Fixed-$N$ blend + image curvature magnitudes need a different $\eta$ or a pure error-tolerance controller. Combining with aggressive capping (M4) is better than M2 but still worse than damping-only (M3) at $N=4$.
+2. **Step adaptation alone harms** under the transferred $\eta$ at low $N$ (M2 worst). A fixed budget of $N$ steps plus image curvature magnitudes need a different $\eta$ or a pure error-tolerance controller. Combining with aggressive capping (M4) is better than M2 but still worse than damping-only (M3) at $N = 4$.
 3. At $N=8$, $w=1.5$, **M4 is best** (FD 35.9), suggesting joint adaptation helps once the step budget is less extreme.
 
 **Figures:** [`results/figures/fd_vs_nfe.png`](results/figures/fd_vs_nfe.png), [`results/figures/fmnist_M1_w5_n8.png`](results/figures/fmnist_M1_w5_n8.png), [`results/figures/fmnist_M4_w5_n8.png`](results/figures/fmnist_M4_w5_n8.png).
