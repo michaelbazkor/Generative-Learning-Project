@@ -120,6 +120,20 @@ def test_affine_cap_respects_bound():
     assert float(w.mean()) >= 1.0
 
 
+def test_w_star_clip_when_uncond_accel_is_zero():
+    """If a_empty = 0, w* = clip(alpha / ||a_delta||_rms, 1, w_max)."""
+    a_u = torch.zeros(1, 2)
+    # rms(a_delta) = 0.5/sqrt(2) ≈ 0.354, so alpha/rms ≈ 2.83 lies in (1, 7)
+    a_c = torch.tensor([[0.5, 0.0]])
+    alpha = 1.0
+    w_max = 7.0
+    w = choose_w_affine_cap(a_u, a_c, w_max=w_max, alpha=alpha)
+    a_rms = float(rms_norm(a_c - a_u))
+    expected = min(w_max, max(1.0, alpha / a_rms))
+    assert abs(float(w) - expected) < 1e-4
+    assert abs(float(rms_norm(a_u + w.view(-1, 1) * (a_c - a_u))) - alpha) < 1e-3
+
+
 def test_rms_scales_with_dimension():
     a = torch.ones(1, 100)
     # ||a||_2 = 10, rms = 10/10 = 1
@@ -134,6 +148,7 @@ if __name__ == "__main__":
         test_equal_euler_error_scaling,
         test_affine_cfg_acceleration,
         test_affine_cap_respects_bound,
+        test_w_star_clip_when_uncond_accel_is_zero,
         test_rms_scales_with_dimension,
     ]
     for fn in tests:

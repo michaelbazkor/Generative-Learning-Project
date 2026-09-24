@@ -119,7 +119,8 @@ def choose_w_affine_cap(
 
 
 def damp_w_gamma(w: float, a_rms: torch.Tensor, gamma: float) -> torch.Tensor:
-    return torch.full_like(a_rms, w) / (1.0 + gamma * (a_rms ** 2))
+    """Plan formula: w / (1 + γ ||a||). No square on the norm."""
+    return torch.full_like(a_rms, w) / (1.0 + gamma * a_rms)
 
 
 @torch.no_grad()

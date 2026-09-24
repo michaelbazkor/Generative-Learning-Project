@@ -1,143 +1,321 @@
 # Theory Notes: Curvature Signals for OT Flow Matching
 
-These notes justify the estimators and adaptation laws used in the experiment.
-Empirical choices still appear in `REPORT.md`; here we only keep identities that
-can be checked without fitting a network.
+These notes justify the estimators and adaptation laws. Each claim is either an identity
+(algebra, no approximation) or a Taylor statement with the remainder written out.
+Empirical choices are in `REPORT.md`.
 
-## 1. Ideal OT paths have zero particle acceleration
-
-Under the linear OT interpolant
+**Notation.** Samples are vectors in $\mathbb{R}^d$. The RMS norm and inner product are
 
 $$
-x_t = (1-t)\,x_0 + t\,x_1,\qquad t\in[0,1],
+\lVert u\rVert_{\mathrm{rms}}
+:= d^{-1/2}\lVert u\rVert_2,
+\qquad
+\langle u,v\rangle_{\mathrm{rms}}
+:= d^{-1}\sum_{i=1}^{d} u_i v_i.
 $$
 
-the conditional velocity is the constant vector field
+So $\lVert u\rVert_{\mathrm{rms}}^2 = \langle u,u\rangle_{\mathrm{rms}}$. A quantity written $\lVert a\rVert$ below means this RMS norm unless a subscript says otherwise. The planned guidance formula uses the norm itself, **not** its square.
+
+---
+
+## 1. Conditional OT paths have zero acceleration
+
+**Claim.** On the linear interpolant $x_t=(1-t)x_0+t x_1$, the conditional velocity $v\equiv x_1-x_0$ has material acceleration zero.
+
+**Proof.** The velocity does not depend on $(x,t)$, so
 
 $$
-v(x_t,t\mid x_0,x_1) = x_1 - x_0.
+\frac{d}{dt}v(x_t,t) = 0.
 $$
 
-Differentiating along the characteristic gives
+Any nonzero measured acceleration of a trained OT model is therefore approximation error, or a distortion introduced by guidance ($w\neq 1$).
+
+---
+
+## 2. The marginal OT field is straight; the partial derivative need not vanish
+
+Sampling integrates the **marginal** field $v_t(x)=\mathbb{E}[x_1-x_0\mid x_t=x]$, not one conditional. For the OT (displacement) coupling, characteristics are still straight at constant speed, so the material derivative along them is zero. The partial $\partial_t v$ can be nonzero and is the wrong signal.
+
+**Worked example.** Let the OT map be the dilation $T(x_0)=2x_0$. Then
 
 $$
-\ddot{x}_t = \frac{d}{dt}v(x_t,t) = 0.
+x_t=(1-t)x_0+t\cdot 2x_0=(1+t)x_0,
+\qquad
+v_t(x)=\frac{x}{1+t},
 $$
 
-Thus any nonzero measured acceleration on a well-trained OT-coupled model is
-necessarily an approximation error or a CFG-induced distortion.
-
-**Independent coupling caveat.** If $x_0$ and $x_1$ are sampled independently,
-conditional paths are straight but cross. The *marginal* field
-$v_t(x)=\mathbb{E}[x_1-x_0\mid x_t=x]$ is generally curved, so
-$\lVert a_t\rVert\not\approx 0$ even for a perfect network. Minibatch OT restores
-(approximately) non-crossing straight characteristics.
-
-## 2. Material derivative vs partial time derivative
-
-Along a trajectory $\dot{x} = v(x,t)$,
+because $x_1-x_0=x_0=x_t/(1+t)$. Along the characteristic $x(t)=(1+t)x_0$ one has $v(x(t),t)=x_0$, a constant, so
 
 $$
-a_t := \frac{d}{dt}v(x_t,t)
-= \partial_t v(x_t,t) + \bigl(\nabla_x v(x_t,t)\bigr)\,v(x_t,t).
+a_t=\frac{d}{dt}v(x(t),t)=0.
 $$
 
-The proposal's fixed-$x$ finite difference approximates only $\partial_t v$.
-The experiment plan's Heun pair
+The partial derivative at fixed $x$ is not zero:
 
 $$
-\tilde{x} = x + \Delta t\,v(x,t),\qquad
-\hat{a} = \frac{v(\tilde{x},t+\Delta t)-v(x,t)}{\Delta t}
+\partial_t v_t(x)=-\frac{x}{(1+t)^2}.
 $$
 
-is a consistent estimator of the *material* derivative:
+The convective term cancels it. With $\nabla v = (1+t)^{-1} I$,
 
 $$
-\hat{a} = a_t + O(\Delta t).
+\partial_t v + (\nabla v)\,v
+= -\frac{x}{(1+t)^2} + \frac{1}{1+t}\cdot\frac{x}{1+t}
+= 0.
 $$
 
-Proof: Taylor-expand $v(\tilde{x},t+\Delta t)$ to first order in $\Delta t$.
+So a finite difference that changes only $t$ reports curvature on a perfect OT field. A difference along the trajectory does not.
 
-## 3. Heun gap equals local Euler truncation
+**Independent coupling is not this situation.** If $x_0$ and $x_1$ are drawn independently, conditional segments still have zero acceleration, but they cross, and the marginal field is curved.
 
-One Euler step: $x_E = x + \Delta t\,v_1$, $v_1=v(x,t)$.
-Heun: $x_H = x + \tfrac{1}{2}\Delta t\,(v_1+v_2)$, $v_2=v(x_E,t+\Delta t)$.
-Then
+**Worked example.** Take standard Gaussians $p_0=p_1=\mathcal{N}(0,1)$ in one dimension.
 
-$$
-x_H - x_E = \tfrac{1}{2}\Delta t\,(v_2-v_1) = \tfrac{1}{2}(\Delta t)^2\,\hat{a}.
-$$
-
-So $\lVert x_H-x_E\rVert$ and $\lVert\hat{a}\rVert$ carry the same geometric information;
-controlling one controls the other.
-
-## 4. Equal-error step sizes
-
-Local Euler truncation is $\tfrac{1}{2}(\Delta t)^2\lVert a\rVert$. Holding that error
-constant across steps requires
+- OT coupling is the identity, so $v\equiv 0$ and $a\equiv 0$.
+- Independent coupling gives $x_t=(1-t)x_0+t x_1$ with variance
 
 $$
-\Delta t \propto \lVert a\rVert^{-1/2}.
+\sigma_t^2=(1-t)^2+t^2=2t^2-2t+1.
 $$
 
-The written law $\Delta t=\eta/(\lVert a\rVert+\varepsilon)$ is the $p=1$ special case of
-$\Delta t\propto\lVert a\rVert^{-p}$ and does **not** equalize Euler error.
-For an order-2 Heun controller on the embedded gap $\delta=\lVert x_H-x_E\rVert$, the
-classical PI exponent is $1/(p+1)=1/3$.
-
-**Dimension.** $\lVert a\rVert_2$ scales like $\sqrt{d}$. We therefore use the RMS
+The Gaussian path with this variance is generated by $v_t(x)=\lambda(t)\,x$ where
 
 $$
-\lVert a\rVert_{\mathrm{rms}} = \lVert a\rVert_2/\sqrt{d}
+\lambda(t)=\frac{\dot\sigma_t}{\sigma_t}=\frac{2t-1}{\sigma_t^2}.
 $$
 
-so that $\eta$ can transfer from 2D to images.
-
-## 5. Affine CFG and acceleration capping
-
-Classifier-free guidance is affine in the scale $w$:
+(The identity $\frac{d}{dt}\sigma^2=2\sigma\dot\sigma=4t-2$ gives $\dot\sigma=(2t-1)/\sigma$.) A particle satisfies $\dot x=\lambda(t)x$, hence
 
 $$
-v(w)=v_\varnothing + w\,(v_c-v_\varnothing).
+\ddot x=(\dot\lambda+\lambda^2)x.
 $$
 
-The same finite-difference construction is affine, so once both branches are
-cached at the predictor and corrector states,
+At $t=0$, $\sigma^2=1$ and $\lambda=-1$. Differentiating $\lambda=(2t-1)/\sigma^2$ gives $\dot\lambda(0)=0$, so
 
 $$
-a(w)=a_\varnothing + w\,(a_c-a_\varnothing)
+\ddot x\big|_{t=0}=(\,0+1\,)x=x,
 $$
 
-costs no extra network evaluations. The constraint $\lVert a(w)\rVert_{\mathrm{rms}}\le\alpha$
-with $w\in[1,w_{\max}]$ is then a one-dimensional clipping problem:
+which is not identically zero. Independent coupling therefore produces real curvature even for a perfect network. That is why the experiment compares minibatch OT with independent coupling before treating $\lVert a\rVert$ as model or guidance error.
+
+---
+
+## 3. Heun difference = material acceleration $+\,O(\Delta t)$
+
+**Claim.** If $\dot x=v(x,t)$ and $a=\partial_t v+(\nabla_x v)\,v$, then with $\tilde x=x+\Delta t\,v(x,t)$,
 
 $$
-w^\star=\mathrm{clip}\Biggl(
-\frac{\alpha\cdot\mathrm{sign}-\langle a_\varnothing,a_\Delta\rangle_{\mathrm{rms}}}
-{\lVert a_\Delta\rVert_{\mathrm{rms}}^2+\varepsilon},\;1,\;w_{\max}\Biggr)
+\hat a:=\frac{v(\tilde x,\,t+\Delta t)-v(x,t)}{\Delta t}
+= a + O(\Delta t).
 $$
 
-when a feasible root exists; otherwise take the endpoint of $[1,w_{\max}]$
-with smaller $\lVert a\rVert$. The heuristic $w/(1+\gamma\lVert a\rVert^2)$ is an approximate
-soft version of the same idea and creates a fixed-point in $w$ unless $a$ is
-lagged from the previous step.
-
-## 6. Fixed-$N$ allocation
-
-A free adaptive controller does not spend a prescribed budget $N$. For fair
-ablations we propose a candidate
+**Proof.** Taylor-expand in the increment $(\Delta t\,v,\,\Delta t)$:
 
 $$
-\Delta t^{\mathrm{prop}}=\frac{\eta}{\lVert a\rVert_{\mathrm{rms}}^p+\varepsilon},
+\begin{aligned}
+v(\tilde x, t+\Delta t)
+&= v + \Delta t\,\partial_t v + \Delta t\,(\nabla_x v)\,v + O(\Delta t^2)\\
+&= v + \Delta t\,a + O(\Delta t^2).
+\end{aligned}
 $$
 
-blend it with the remaining uniform budget
+Divide by $\Delta t$. The proposal estimator, which holds $x$ fixed, keeps only $\partial_t v$ and drops $(\nabla_x v)v$. Section 2 is a case where that dropped term is the entire signal.
+
+---
+
+## 4. Exact identity: Heun gap equals the Euler defect
+
+This step is algebra, not a limit.
+
+Euler: $x_E=x+\Delta t\,v_1$ with $v_1=v(x,t)$.
+
+Heun: $x_H=x+\tfrac{1}{2}\Delta t\,(v_1+v_2)$ with $v_2=v(x_E,t+\Delta t)$.
+
+Subtract:
 
 $$
-\Delta t=\mathrm{clip}\Biggl(
-\tfrac{1}{2}\bigl(\Delta t^{\mathrm{prop}}+(1-t)/n_{\mathrm{left}}\bigr),\;
-\Delta t_{\min},\;\min(\Delta t_{\max},1-t)\Biggr),
+x_H-x_E
+=\tfrac{1}{2}\Delta t\,(v_2-v_1)
+=\tfrac{1}{2}(\Delta t)^2\hat a,
+\qquad
+\hat a=\frac{v_2-v_1}{\Delta t}.
 $$
 
-and force the last step onto $t=1$. This keeps exactly $N$ accepted steps
-while still concentrating resolution where $\lVert a\rVert$ is large.
+So $\lVert x_H-x_E\rVert$ and $\lVert\hat a\rVert$ are the same number up to the known factor $\tfrac{1}{2}(\Delta t)^2$. The local Euler truncation is that gap plus a higher-order remainder: the Taylor expansion of the true flow is
+
+$$
+x(t+\Delta t)=x+\Delta t\,v+\tfrac{1}{2}(\Delta t)^2 a+O(\Delta t^3),
+$$
+
+and Euler drops the second term. Heun matches the expansion through order $(\Delta t)^2$, so its own local error is $O(\Delta t^3)$. The embedded gap estimates the **Euler** defect, which is $O(\Delta t^2)$, not the Heun remainder.
+
+---
+
+## 5. Equal-error step sizes
+
+**Claim.** Holding the leading Euler error fixed requires $\Delta t\propto\lVert a\rVert^{-1/2}$. The plan formula $\Delta t=\eta/(\lVert a\rVert+\varepsilon)$ does not.
+
+**Proof.** The leading error has size $\tfrac{1}{2}(\Delta t)^2\lVert a\rVert$. Set it equal to a tolerance $\tau>0$:
+
+$$
+\tfrac{1}{2}(\Delta t)^2\lVert a\rVert=\tau
+\qquad\Rightarrow\qquad
+\Delta t=\sqrt{\frac{2\tau}{\lVert a\rVert}}
+\propto\lVert a\rVert^{-1/2}.
+$$
+
+Check the plan exponent $p=1$, i.e. $\Delta t=\eta/(\lVert a\rVert+\varepsilon)$. Substitute $\lVert a\rVert=\eta/\Delta t$ (ignore $\varepsilon$):
+
+$$
+\tfrac{1}{2}(\Delta t)^2\cdot\frac{\eta}{\Delta t}=\tfrac{1}{2}\eta\,\Delta t,
+$$
+
+which still grows with $\Delta t$. It does not hold the error constant.
+
+**Why not the exponent $1/3$.** For a method of order $p$ whose error estimate scales as $O(h^{p+1})$, the standard update uses exponent $1/(p+1)$. Heun has order 2, so that exponent is $1/3$ **if** the estimate is Heun's own $O(h^3)$ remainder. Our estimate $\lVert x_H-x_E\rVert$ scales as $O(h^2)$ (Section 4), so the exponent that flattens it is $1/2$, the same rule as above. The $p=1/3$ controller was still run as a baseline; it is not the controller this estimator justifies.
+
+**Dimension.** If each coordinate of $a$ is size $\sigma$, then $\lVert a\rVert_2\approx\sigma\sqrt{d}$ while $\lVert a\rVert_{\mathrm{rms}}\approx\sigma$. The RMS norm is the one that can use the same $\eta$ in 2D and in images.
+
+**Fixed budget.** A free $\Delta t$ does not spend a prescribed $N$. With $n_{\mathrm{left}}$ steps and time $1-t$ still unused, the implemented step is the average of the equal-error proposal and the uniform remainder, then projected into the allowed range:
+
+$$
+\Delta t^{\mathrm{prop}}=\frac{\eta}{\lVert a\rVert_{\mathrm{rms}}^{p}+\varepsilon},
+\qquad
+\Delta t=\mathrm{clip}\!\left(
+\tfrac{1}{2}\Big(\Delta t^{\mathrm{prop}}+\frac{1-t}{n_{\mathrm{left}}}\Big),\;
+\Delta t_{\min},\;\min(\Delta t_{\max},\,1-t)
+\right).
+$$
+
+The last step is set to $1-t$, so every trajectory uses exactly $N$ accepted steps and ends at $t=1$. The average is a design choice (it cannot overshoot the budget as badly as the raw proposal); the exponent $p=1/2$ is the part justified above.
+
+---
+
+## 6. Affine CFG, and the equation for $w^\star$
+
+Classifier-free guidance is affine in the scale:
+
+$$
+v(w)=v_\varnothing+w\,(v_c-v_\varnothing).
+$$
+
+Evaluate both branches at the **same** two states $(x,t)$ and $(\tilde x, t+\Delta t)$. The finite difference is linear, so
+
+$$
+a(w)=a_\varnothing+w\,a_\Delta,
+\qquad
+a_\Delta:=a_c-a_\varnothing,
+$$
+
+with no extra network evaluation. This $a(w)$ is the acceleration of the combined field along that trial. It is not the material acceleration of $v_c$ or $v_\varnothing$ along their own trajectories. In particular, $a_c=0$ and $a_\varnothing=0$ along their own paths does **not** imply $a(w)=0$ on the guided path, because the guided state $\tilde x$ depends on $w$.
+
+### 6.1 The constraint
+
+We want the **largest** guidance in the allowed interval that respects a curvature budget:
+
+$$
+w^\star
+=\max\Big\{w\in[1,w_{\max}]:\lVert a(w)\rVert_{\mathrm{rms}}\le\alpha\Big\},
+$$
+
+when that set is nonempty. Larger $w$ is the requested guidance; we only cut it to meet the cap. If the set is empty, no allowed scale meets the cap, and we keep the endpoint of $[1,w_{\max}]$ with the smaller RMS acceleration.
+
+### 6.2 Expanding the norm
+
+$$
+\begin{aligned}
+\lVert a(w)\rVert_{\mathrm{rms}}^2
+&=\lVert a_\varnothing+w\,a_\Delta\rVert_{\mathrm{rms}}^2\\
+&=\lVert a_\varnothing\rVert_{\mathrm{rms}}^2
++2w\,\langle a_\varnothing,a_\Delta\rangle_{\mathrm{rms}}
++w^2\lVert a_\Delta\rVert_{\mathrm{rms}}^2.
+\end{aligned}
+$$
+
+Write $A=\lVert a_\Delta\rVert_{\mathrm{rms}}^2$, $B=\langle a_\varnothing,a_\Delta\rangle_{\mathrm{rms}}$, $C_0=\lVert a_\varnothing\rVert_{\mathrm{rms}}^2$. The cap $\lVert a(w)\rVert_{\mathrm{rms}}\le\alpha$ is
+
+$$
+A w^2+2Bw+C_0\le\alpha^2,
+$$
+
+or $A w^2+2Bw+C\le 0$ with $C=C_0-\alpha^2$.
+
+### 6.3 Special case that is a plain clip
+
+If $a_\varnothing=0$, then $B=C_0=0$ and the inequality is $|w|\,\lVert a_\Delta\rVert_{\mathrm{rms}}\le\alpha$. For $w\ge 0$,
+
+$$
+w^\star
+=\mathrm{clip}\!\left(
+\frac{\alpha}{\lVert a_\Delta\rVert_{\mathrm{rms}}},\;
+1,\;
+w_{\max}
+\right),
+$$
+
+provided $\lVert a_\Delta\rVert_{\mathrm{rms}}>0$. If the unconstrained ratio already lies in $[1,w_{\max}]$, the clip does nothing. If it lies above $w_{\max}$, curvature at full guidance is still under the cap, so $w^\star=w_{\max}$. If it lies below $1$, even the unguided field (here $w=1$, and $a(1)=a_\Delta$) exceeds the cap, so the constraint is infeasible inside the interval and the rule of Section 6.1 returns $w=1$.
+
+### 6.4 General case: quadratic, then clip the larger root
+
+Now $A>0$. The boundary $A w^2+2Bw+C=0$ is a quadratic in $w$. The quadratic formula gives
+
+$$
+w
+=\frac{-2B\pm\sqrt{(2B)^2-4AC}}{2A}
+=\frac{-B\pm\sqrt{B^2-AC}}{A}.
+$$
+
+Let $D=B^2-AC$ and, when $D\ge 0$,
+
+$$
+w_{\pm}=\frac{-B\pm\sqrt{D}}{A},
+\qquad w_+\ge w_-.
+$$
+
+Since $A>0$, the parabola opens upwards, so $\lVert a(w)\rVert_{\mathrm{rms}}\le\alpha$ holds exactly on the interval $[w_-,w_+]$ (and nowhere if $D<0$). Intersect with the allowed window:
+
+$$
+I=[w_-,w_+]\cap[1,w_{\max}].
+$$
+
+- If $I$ is nonempty, $w^\star=\max I$. Whenever $w_-\le w_{\max}$ and $w_+\ge 1$, this maximum equals
+
+$$
+w^\star=\mathrm{clip}(w_+,\,1,\,w_{\max}).
+$$
+
+  Reason: $\max I=\min(w_+,w_{\max})$, and that value is at least $1$ precisely because $I$ meets $[1,w_{\max}]$. The clip is this statement, not an extra heuristic.
+
+- If $D<0$, the parabola never drops to $\alpha^2$, so $I$ is empty.
+- If $I$ is empty, apply the fallback in Section 6.1.
+
+The implementation follows this argument. It starts from $w_{\max}$ and only solves the quadratic when $\lVert a(w_{\max})\rVert_{\mathrm{rms}}>\alpha$. In that case $w_{\max}\notin[w_-,w_+]$, so the largest feasible root that still lies in $[1,w_{\max}]$ is the right choice; if neither root lies in the window, it compares the two endpoints. A tiny $\varepsilon$ is added only in the division by $A$.
+
+There is no factor of the form $\alpha\cdot\mathrm{sign}(\cdot)$ in this derivation. An earlier draft wrote a single clipped fraction with that term; that expression does not solve $A w^2+2Bw+C=0$ and is withdrawn.
+
+### 6.5 The planned $\gamma$ damper is not this solution
+
+The experiment plan damps by
+
+$$
+w_{\mathrm{eff}}=\frac{w}{1+\gamma\,\lVert a\rVert},
+$$
+
+with $\gamma\in\{0.1,0.5\}$. The norm is **not** squared. Squaring it, $w/(1+\gamma\lVert a\rVert^2)$, is a different and stronger shrinkage. It appeared in an earlier draft of these notes and in the first $\gamma$ ablation; that was a mistake relative to the plan, and the implementation now uses the unsquared formula.
+
+This rule is a heuristic. It does not solve Section 6.1. It also depends on $a$, while $a$ depends on $w_{\mathrm{eff}}$. The sampler breaks the loop by inserting $\lVert a\rVert$ from the previous step (one-step lag). The quadratic cap does not need that lag: $a_\varnothing$ and $a_\Delta$ are computed from the two cached branches, and $w^\star$ is then a function of those tensors alone.
+
+---
+
+## 7. What is proved and what is not
+
+| Statement | Status |
+|---|---|
+| Conditional velocity $x_1-x_0$ has $a=0$ | Proved (Section 1) |
+| OT dilation: material $a=0$, partial $\partial_t v\neq 0$ | Proved (Section 2) |
+| Independent $\mathcal{N}(0,1)\to\mathcal{N}(0,1)$ has $\ddot x=x$ at $t=0$ | Proved (Section 2) |
+| Heun $\hat a=a+O(\Delta t)$ | Proved (Section 3) |
+| $x_H-x_E=\tfrac{1}{2}(\Delta t)^2\hat a$ | Identity (Section 4) |
+| Equal Euler error $\Rightarrow$ $p=1/2$ | Proved (Section 5) |
+| $w^\star=\mathrm{clip}(w_+,1,w_{\max})$ when the feasible interval meets $[1,w_{\max}]$ | Proved (Section 6.4) |
+| $\gamma$ damper without a square on $\lVert a\rVert$ | The plan's formula; not the solution of the cap |
+| Fixed-$N$ average of proposal and uniform remainder | Design choice (Section 5), not a theorem |

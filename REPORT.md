@@ -37,7 +37,7 @@ Identity tests: `python tests/test_identities.py` (7/7 passed).
 | Acceleration | Proposal: $\partial_t v$ at fixed $x$. Plan: Heun pair along the path. | Particle accel is the **material** derivative $\partial_t v + (\nabla v)v$. Heun FD matches it up to $O(\Delta t)$. | Prefer Heun (verified Stage 2). |
 | Coupling | “OT-CFM” loss with independent $x_0,x_1$. | Independent conditionals cross → curved marginal even for a perfect net. True OT needs (mini)batch matching. | Test both (Stage 1). |
 | Step law | $\Delta t=\eta/(\lVert a\rVert+\varepsilon)$ ($p=1$). | Euler local error $\propto (\Delta t)^2\lVert a\rVert$ ⇒ equal error needs $p=1/2$. Use RMS $\lVert a\rVert_2/\sqrt{d}$. | Test $p\in\{1,1/2,1/3\}$ vs uniform (Stage 3). |
-| Guidance | $w/(1+\gamma\lVert a\rVert^2)$ with $a$ depending on $w$. | CFG is affine ⇒ $a(w)=a_\varnothing+w(a_c-a_\varnothing)$ free from cached branches. Cap $\lVert a(w)\rVert_{\mathrm{rms}}\le\alpha$. | Test fixed / $\gamma$ / affine cap (Stage 4). |
+| Guidance | $w/(1+\gamma\lVert a\rVert)$, norm not squared. $a$ depends on $w$. | CFG is affine, so $a(w)=a_\varnothing+w(a_c-a_\varnothing)$ from cached branches. $w^\star=\mathrm{clip}(w_+,1,w_{\max})$ is the larger root of $\lVert a(w)\rVert_{\mathrm{rms}}=\alpha$. | Test fixed / $\gamma$ / affine cap (Stage 4). |
 | Budget | Free $\Delta t$ formula vs fixed $N$. | Fair ablations use exactly $N$ steps with blend of proposal and remaining uniform budget. | Implemented in `sample_ode`. |
 
 ---
@@ -97,13 +97,13 @@ Mean metrics for $w\ge 3$:
 
 | Law | mean $W_2$ | off-support |
 |---|---|---|
-| **`affine_cap`** | **0.0397** | **0.0925** |
-| `gamma_0.5` | 0.0407 | 0.100 |
-| `gamma_0.1` | 0.0459 | 0.094 |
-| fixed | 0.0475 | 0.097 |
+| fixed | **0.0430** | 0.090 |
+| `affine_cap` | 0.0450 | **0.089** |
+| `gamma_0.5` | 0.0463 | 0.096 |
+| `gamma_0.1` | 0.0476 | 0.097 |
 
-**Decision: `affine_cap`.**  
-**Why (theory + data):** Affine CFG makes $a(w)$ free; capping curvature is the principled soft clamp of $w\in[1,w_{\max}]$. It beat both $\gamma$ heuristics and fixed CFG.
+**Decision used in Stages 5–6: `affine_cap`.**  
+**Correction:** the plan damper is $w/(1+\gamma\lVert a\rVert)$, with **no** square on the norm. The first $\gamma$ ablation squared it. The table above is the rerun with the plan formula. On that rerun, fixed $w$ has the lowest mean $W_2$ for $w\ge 3$ (0.043 vs 0.045 for the cap). The gap is small, and the cap still has the lower off-support rate. Stages 5–6 were already run with the cap and were not repeated. The cap remains the rule derived in `docs/theory.md` Section 6: $w^\star=\mathrm{clip}(w_+,1,w_{\max})$, the larger root of $\lVert a(w)\rVert_{\mathrm{rms}}=\alpha$. The $\gamma$ rule does not solve that equation.
 
 ---
 
