@@ -4,17 +4,18 @@ These notes justify the estimators and adaptation laws. Each claim is either an 
 (algebra, no approximation) or a Taylor statement with the remainder written out.
 Empirical choices are in `REPORT.md`.
 
-Math is written with plain parentheses only (no `\left`, `\right`, or `\Big`), and products use `\cdot`, so GitHub rendering stays reliable.
+Math uses only plain parentheses (no sizing macros such as `\left` / `\right` / `\Big`),
+products with `\cdot`, and norms written as `\Vert ... \Vert` (so Markdown tables are not broken by `|`).
 
 **Notation.** Samples are vectors in $\mathbb{R}^d$. The RMS norm and inner product are
 
 $$
-\|u\|_{\mathrm{rms}} := d^{-1/2}\|u\|_2 ,
+\Vert u \Vert_{\mathrm{rms}} := d^{-1/2} \Vert u \Vert_2 ,
 \qquad
-\langle u, v \rangle_{\mathrm{rms}} := d^{-1}\sum_{i=1}^{d} u_i v_i .
+\langle u, v \rangle_{\mathrm{rms}} := d^{-1} \sum_{i=1}^{d} u_i v_i .
 $$
 
-So $\|u\|_{\mathrm{rms}}^2 = \langle u, u \rangle_{\mathrm{rms}}$. Below, $\|a\|$ means this RMS norm unless a subscript says otherwise. The planned guidance formula uses the norm itself, **not** its square.
+So $\Vert u \Vert_{\mathrm{rms}}^2 = \langle u, u \rangle_{\mathrm{rms}}$. Below, $\Vert a \Vert$ means this RMS norm unless a subscript says otherwise. The planned guidance formula uses the norm itself, **not** its square.
 
 ---
 
@@ -95,7 +96,7 @@ $$
 \ddot{x}|_{t=0} = (0+1)\cdot x = x ,
 $$
 
-which is not identically zero. Independent coupling therefore produces real curvature even for a perfect network. That is why the experiment compares minibatch OT with independent coupling before treating $\|a\|$ as model or guidance error.
+which is not identically zero. Independent coupling therefore produces real curvature even for a perfect network. That is why the experiment compares minibatch OT with independent coupling before treating $\Vert a \Vert$ as model or guidance error.
 
 ---
 
@@ -138,7 +139,7 @@ x_H - x_E
 \hat{a} = \frac{v_2 - v_1}{\Delta t} .
 $$
 
-So $\|x_H - x_E\|$ and $\|\hat{a}\|$ are the same number up to the known factor $\frac{1}{2}(\Delta t)^2$. The local Euler truncation is that gap plus a higher-order remainder: the Taylor expansion of the true flow is
+So $\Vert x_H - x_E \Vert$ and $\Vert \hat{a} \Vert$ are the same number up to the known factor $\frac{1}{2}(\Delta t)^2$. The local Euler truncation is that gap plus a higher-order remainder: the Taylor expansion of the true flow is
 
 $$
 x(t+\Delta t) = x + \Delta t\cdot v + \frac{1}{2}(\Delta t)^2\cdot a + O((\Delta t)^3) ,
@@ -150,18 +151,18 @@ and Euler drops the second-order term. Heun matches the expansion through order 
 
 ## 5. Equal-error step sizes
 
-**Claim.** Holding the leading Euler error fixed requires $\Delta t \propto \|a\|^{-1/2}$. The plan formula $\Delta t = \eta/(\|a\| + \varepsilon)$ does not.
+**Claim.** Holding the leading Euler error fixed requires $\Delta t \propto \Vert a \Vert^{-1/2}$. The plan formula $\Delta t = \eta/(\Vert a \Vert + \varepsilon)$ does not.
 
-**Proof.** The leading error has size $\frac{1}{2}(\Delta t)^2\cdot\|a\|$. Set it equal to a tolerance $\tau > 0$:
+**Proof.** The leading error has size $\frac{1}{2}(\Delta t)^2\cdot\Vert a \Vert$. Set it equal to a tolerance $\tau > 0$:
 
 $$
-\frac{1}{2}(\Delta t)^2\cdot\|a\| = \tau
+\frac{1}{2}(\Delta t)^2\cdot\Vert a \Vert = \tau
 \qquad\Rightarrow\qquad
-\Delta t = \sqrt{\frac{2\tau}{\|a\|}}
-\propto \|a\|^{-1/2} .
+\Delta t = \sqrt{\frac{2\tau}{\Vert a \Vert}}
+\propto \Vert a \Vert^{-1/2} .
 $$
 
-Check the plan exponent $p = 1$, i.e. $\Delta t = \eta/(\|a\| + \varepsilon)$. Substitute $\|a\| = \eta/\Delta t$ (ignore $\varepsilon$):
+Check the plan exponent $p = 1$, i.e. $\Delta t = \eta/(\Vert a \Vert + \varepsilon)$. Substitute $\Vert a \Vert = \eta/\Delta t$ (ignore $\varepsilon$):
 
 $$
 \frac{1}{2}(\Delta t)^2\cdot\frac{\eta}{\Delta t} = \frac{1}{2}\eta\cdot\Delta t ,
@@ -169,23 +170,24 @@ $$
 
 which still grows with $\Delta t$. It does not hold the error constant.
 
-**Why not the exponent $1/3$.** For a method of order $p$ whose error estimate scales as $O(h^{p+1})$, the standard update uses exponent $1/(p+1)$. Heun has order $2$, so that exponent is $1/3$ **if** the estimate is Heun's own $O(h^3)$ remainder. Our estimate $\|x_H - x_E\|$ scales as $O(h^2)$ (Section 4), so the exponent that flattens it is $1/2$, the same rule as above. The $p = 1/3$ controller was still run as a baseline; it is not the controller this estimator justifies.
+**Why not the exponent $1/3$.** For a method of order $p$ whose error estimate scales as $O(h^{p+1})$, the standard update uses exponent $1/(p+1)$. Heun has order $2$, so that exponent is $1/3$ **if** the estimate is Heun's own $O(h^3)$ remainder. Our estimate $\Vert x_H - x_E \Vert$ scales as $O(h^2)$ (Section 4), so the exponent that flattens it is $1/2$, the same rule as above. The $p = 1/3$ controller was still run as a baseline; it is not the controller this estimator justifies.
 
-**Dimension.** If each coordinate of $a$ is size $\sigma$, then $\|a\|_2 \approx \sigma\sqrt{d}$ while $\|a\|_{\mathrm{rms}} \approx \sigma$. The RMS norm is the one that can use the same $\eta$ in 2D and in images.
+**Dimension.** If each coordinate of $a$ is size $\sigma$, then $\Vert a \Vert_2 \approx \sigma\sqrt{d}$ while $\Vert a \Vert_{\mathrm{rms}} \approx \sigma$. The RMS norm is the one that can use the same $\eta$ in 2D and in images.
 
 **Fixed budget.** A free $\Delta t$ does not spend a prescribed number of steps $N$. With $n_{\mathrm{left}}$ steps and time $1-t$ still unused, the implemented step is the average of the equal-error proposal and the uniform remainder, then projected into the allowed range:
 
 $$
-\Delta t^{\mathrm{prop}} = \frac{\eta}{\|a\|_{\mathrm{rms}}^{p} + \varepsilon} .
+\Delta t^{\mathrm{prop}} = \frac{\eta}{\Vert a \Vert_{\mathrm{rms}}^{p} + \varepsilon} .
 $$
 
 $$
-u = 0.5 \cdot (\Delta t^{\mathrm{prop}} + (1-t)/n_{\mathrm{left}}) ,
+u = 0.5\cdot(\Delta t^{\mathrm{prop}} + (1-t)/n_{\mathrm{left}}) ,
 \qquad
 \Delta t = \mathrm{clip}(u, \Delta t_{\min}, \min(\Delta t_{\max}, 1-t)) .
 $$
 
 The last step is set to $1-t$, so every trajectory uses exactly $N$ accepted steps and ends at $t = 1$. The average is a design choice; the exponent $p = 1/2$ is the part justified above.
+
 ---
 
 ## 6. Affine CFG, and the equation for $w^{\star}$
@@ -212,7 +214,7 @@ We want the **largest** guidance in the allowed interval that respects a curvatu
 
 $$
 w^{\star}
-= \max\{ w \in [1, w_{\max}] : \|a(w)\|_{\mathrm{rms}} \le \alpha \} ,
+= \max\{ w \in [1, w_{\max}] : \Vert a(w) \Vert_{\mathrm{rms}} \le \alpha \} ,
 $$
 
 when that set is nonempty. Larger $w$ is the requested guidance; we only cut it to meet the cap. If the set is empty, no allowed scale meets the cap, and we keep the endpoint of $[1, w_{\max}]$ with the smaller RMS acceleration.
@@ -220,14 +222,14 @@ when that set is nonempty. Larger $w$ is the requested guidance; we only cut it 
 ### 6.2 Expanding the norm
 
 $$
-\|a(w)\|_{\mathrm{rms}}^2
-= \|a_{\emptyset} + w\cdot a_{\Delta}\|_{\mathrm{rms}}^2
-= \|a_{\emptyset}\|_{\mathrm{rms}}^2
+\Vert a(w) \Vert_{\mathrm{rms}}^2
+= \Vert a_{\emptyset} + w\cdot a_{\Delta} \Vert_{\mathrm{rms}}^2
+= \Vert a_{\emptyset} \Vert_{\mathrm{rms}}^2
 + 2w\cdot\langle a_{\emptyset}, a_{\Delta} \rangle_{\mathrm{rms}}
-+ w^2\cdot\|a_{\Delta}\|_{\mathrm{rms}}^2 .
++ w^2\cdot\Vert a_{\Delta} \Vert_{\mathrm{rms}}^2 .
 $$
 
-Write $A = \|a_{\Delta}\|_{\mathrm{rms}}^2$, $B = \langle a_{\emptyset}, a_{\Delta} \rangle_{\mathrm{rms}}$, $C_0 = \|a_{\emptyset}\|_{\mathrm{rms}}^2$. The cap $\|a(w)\|_{\mathrm{rms}} \le \alpha$ is
+Write $A = \Vert a_{\Delta} \Vert_{\mathrm{rms}}^2$, $B = \langle a_{\emptyset}, a_{\Delta} \rangle_{\mathrm{rms}}$, $C_0 = \Vert a_{\emptyset} \Vert_{\mathrm{rms}}^2$. The cap $\Vert a(w) \Vert_{\mathrm{rms}} \le \alpha$ is
 
 $$
 A\cdot w^2 + 2B\cdot w + C_0 \le \alpha^2 ,
@@ -237,14 +239,13 @@ or $A\cdot w^2 + 2B\cdot w + C \le 0$ with $C = C_0 - \alpha^2$.
 
 ### 6.3 Special case that is a plain clip
 
-If $a_{\emptyset} = 0$, then $B = C_0 = 0$ and the inequality is $|w|\cdot\|a_{\Delta}\|_{\mathrm{rms}} \le \alpha$. For $w \ge 0$,
+If $a_{\emptyset} = 0$, then $B = C_0 = 0$ and the inequality is $|w|\cdot\Vert a_{\Delta} \Vert_{\mathrm{rms}} \le \alpha$. For $w \ge 0$,
 
 $$
-w^{\star}
-= \mathrm{clip}(\alpha / \|a_{\Delta}\|_{\mathrm{rms}}, 1, w_{\max}) ,
+w^{\star} = \mathrm{clip}(\alpha / \Vert a_{\Delta} \Vert_{\mathrm{rms}}, 1, w_{\max}) ,
 $$
 
-provided $\|a_{\Delta}\|_{\mathrm{rms}} > 0$. If the unconstrained ratio already lies in $[1, w_{\max}]$, the clip does nothing. If it lies above $w_{\max}$, curvature at full guidance is still under the cap, so $w^{\star} = w_{\max}$. If it lies below $1$, even the unguided field (here $w = 1$, and $a(1) = a_{\Delta}$) exceeds the cap, so the constraint is infeasible inside the interval and the rule of Section 6.1 returns $w = 1$.
+provided $\Vert a_{\Delta} \Vert_{\mathrm{rms}} > 0$. If the unconstrained ratio already lies in $[1, w_{\max}]$, the clip does nothing. If it lies above $w_{\max}$, curvature at full guidance is still under the cap, so $w^{\star} = w_{\max}$. If it lies below $1$, even the unguided field (here $w = 1$, and $a(1) = a_{\Delta}$) exceeds the cap, so the constraint is infeasible inside the interval and the rule of Section 6.1 returns $w = 1$.
 
 ### 6.4 General case: quadratic, then clip the larger root
 
@@ -263,7 +264,7 @@ w_{\pm} = \frac{-B \pm \sqrt{D}}{A} ,
 \qquad w_{+} \ge w_{-} .
 $$
 
-Since $A > 0$, the parabola opens upwards, so $\|a(w)\|_{\mathrm{rms}} \le \alpha$ holds exactly on the interval $[w_{-}, w_{+}]$ (and nowhere if $D < 0$). Intersect with the allowed window:
+Since $A > 0$, the parabola opens upwards, so $\Vert a(w) \Vert_{\mathrm{rms}} \le \alpha$ holds exactly on the interval $[w_{-}, w_{+}]$ (and nowhere if $D < 0$). Intersect with the allowed window:
 
 $$
 I = [w_{-}, w_{+}] \cap [1, w_{\max}] .
@@ -280,7 +281,7 @@ $$
 - If $D < 0$, the parabola never drops to $\alpha^2$, so $I$ is empty.
 - If $I$ is empty, apply the fallback in Section 6.1.
 
-The implementation follows this argument. It starts from $w_{\max}$ and only solves the quadratic when $\|a(w_{\max})\|_{\mathrm{rms}} > \alpha$. In that case $w_{\max} \notin [w_{-}, w_{+}]$, so the largest feasible root that still lies in $[1, w_{\max}]$ is the right choice; if neither root lies in the window, it compares the two endpoints. A tiny $\varepsilon$ is added only in the division by $A$.
+The implementation follows this argument. It starts from $w_{\max}$ and only solves the quadratic when $\Vert a(w_{\max}) \Vert_{\mathrm{rms}} > \alpha$. In that case $w_{\max} \notin [w_{-}, w_{+}]$, so the largest feasible root that still lies in $[1, w_{\max}]$ is the right choice; if neither root lies in the window, it compares the two endpoints. A tiny $\varepsilon$ is added only in the division by $A$.
 
 There is no factor of the form $\alpha\cdot\mathrm{sign}(\cdot)$ in this derivation. An earlier draft wrote a single clipped fraction with that term; that expression does not solve $A\cdot w^2 + 2B\cdot w + C = 0$ and is withdrawn.
 
@@ -289,12 +290,12 @@ There is no factor of the form $\alpha\cdot\mathrm{sign}(\cdot)$ in this derivat
 The experiment plan damps by
 
 $$
-w_{\mathrm{eff}} = \frac{w}{1 + \gamma\cdot\|a\|} ,
+w_{\mathrm{eff}} = \frac{w}{1 + \gamma\cdot\Vert a \Vert} ,
 $$
 
-with $\gamma \in \{0.1, 0.5\}$. The norm is **not** squared. Squaring it, $w/(1 + \gamma\cdot\|a\|^2)$, is a different and stronger shrinkage. It appeared in an earlier draft of these notes and in the first $\gamma$ ablation; that was a mistake relative to the plan, and the implementation now uses the unsquared formula.
+with $\gamma \in \{0.1, 0.5\}$. The norm is **not** squared. Squaring it, $w/(1 + \gamma\cdot\Vert a \Vert^2)$, is a different and stronger shrinkage. It appeared in an earlier draft of these notes and in the first $\gamma$ ablation; that was a mistake relative to the plan, and the implementation now uses the unsquared formula.
 
-This rule is a heuristic. It does not solve Section 6.1. It also depends on $a$, while $a$ depends on $w_{\mathrm{eff}}$. The sampler breaks the loop by inserting $\|a\|$ from the previous step (one-step lag). The quadratic cap does not need that lag: $a_{\emptyset}$ and $a_{\Delta}$ are computed from the two cached branches, and $w^{\star}$ is then a function of those tensors alone.
+This rule is a heuristic. It does not solve Section 6.1. It also depends on $a$, while $a$ depends on $w_{\mathrm{eff}}$. The sampler breaks the loop by inserting $\Vert a \Vert$ from the previous step (one-step lag). The quadratic cap does not need that lag: $a_{\emptyset}$ and $a_{\Delta}$ are computed from the two cached branches, and $w^{\star}$ is then a function of those tensors alone.
 
 ---
 
@@ -309,5 +310,5 @@ This rule is a heuristic. It does not solve Section 6.1. It also depends on $a$,
 | $x_H - x_E = \frac{1}{2}(\Delta t)^2\cdot\hat{a}$ | Identity (Section 4) |
 | Equal Euler error $\Rightarrow$ $p = 1/2$ | Proved (Section 5) |
 | $w^{\star} = \mathrm{clip}(w_{+}, 1, w_{\max})$ when the feasible interval meets $[1, w_{\max}]$ | Proved (Section 6.4) |
-| $\gamma$ damper without a square on $\|a\|$ | The plan's formula; not the solution of the cap |
+| $\gamma$ damper without a square on $\Vert a \Vert$ | The plan's formula; not the solution of the cap |
 | Fixed budget of $N$ steps (average of proposal and uniform remainder) | Design choice (Section 5), not a theorem |
