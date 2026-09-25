@@ -715,6 +715,151 @@ def stage_cifar(
     return rows
 
 
+def _m_cfgs(step_p: float = 0.5, alpha: float = STAGE6_ALPHA, gamma: float = 0.5):
+    return {
+        "M1": dict(step_mode="uniform", guidance_mode="fixed"),
+        "M2": dict(step_mode="adaptive_p", step_p=step_p, guidance_mode="fixed"),
+        "M3": dict(step_mode="uniform", guidance_mode="affine_cap", gamma=gamma, alpha=alpha),
+        "M4": dict(step_mode="adaptive_p", step_p=step_p, guidance_mode="affine_cap", gamma=gamma, alpha=alpha),
+    }
+
+
+def _sample_shared(model, x0, labels, cfg, n_steps, w, device, chunk, clamp=True):
+    """Same noise for every method. Returns samples, mean accepted steps, mean NFE."""
+    field = VelocityField(model, guidance=w, conditioned=True)
+    xs, steps, nfes = [], [], []
+    for start in range(0, x0.shape[0], chunk):
+        sl = slice(start, start + chunk)
+        x, tr, _ = sample_ode(
+            field, x0[sl].to(device), c=labels[sl].to(device),
+            n_steps=n_steps, method="heun", w=w, eta=0.1, **cfg,
+        )
+        x = x.cpu()
+        xs.append(x.clamp(-1, 1) if clamp else x)
+        steps.append(len(tr.dt))
+        nfes.append(tr.nfe)
+    return torch.cat(xs, 0), float(np.mean(steps)), float(np.mean(nfes))
+
+
+def stage_fair(alpha: float = STAGE6_ALPHA):
+    """Compare M1-M4 at matched step count and at matched network-forward count.
+
+    Adaptive runs choose their own length. Uniform runs are then repeated at that
+    length, and again at the N whose 4 forwards/step match the adaptive NFE.
+    Every method at a given w sees the same noise and labels.
+    """
+    device = device_of_choice()
+    cfgs = _m_cfgs(alpha=alpha)
+    rows = []
+
+    # --- pinwheel, shared noise ---
+    ckpt = torch.load(CKPT / "pinwheel_ot.pt", map_location=device, weights_only=False)
+    pw = VelocityMLP(dim=2, hidden=128, n_layers=3, n_classes=5).to(device)
+    pw.load_state_dict(ckpt["state_dict"])
+    pw.eval()
+    _, test_pw, _ = make_2d_loaders("pinwheel", seed=0)
+    torch.manual_seed(0)
+    b_pw = 2000
+    x0_pw = torch.randn(b_pw, 2)
+    y_pw = torch.randint(0, 5, (b_pw,))
+    for w in (1.5, 3.0, 5.0, 7.0):
+        adapt = {}
+        for mname in ("M2", "M4"):
+            s, n_taken, nfe = _sample_shared(pw, x0_pw, y_pw, cfgs[mname], 16, w, device, 2000, clamp=False)
+            adapt[mname] = (n_taken, nfe)
+            rows.append({
+                "dataset": "pinwheel", "method": mname, "match": "adaptive",
+                "w": w, "n": n_taken, "nfe": nfe, "w2": eval_w2(s, test_pw),
+            })
+            print(rows[-1], flush=True)
+        for mname, src in (("M1", "M2"), ("M3", "M4")):
+            n_step = max(1, int(round(adapt[src][0])))
+            n_cost = max(1, int(round(adapt[src][1] / 4.0)))
+            for match, n in (("steps", n_step), ("nfe", n_cost)):
+                s, n_taken, nfe = _sample_shared(pw, x0_pw, y_pw, cfgs[mname], n, w, device, 2000, clamp=False)
+                rows.append({
+                    "dataset": "pinwheel", "method": mname, "match": match,
+                    "matched_to": src, "w": w, "n": n_taken, "nfe": nfe,
+                    "w2": eval_w2(s, test_pw),
+                })
+                print(rows[-1], flush=True)
+
+    # --- images, shared noise, one feature net per dataset ---
+    image_jobs = [
+        ("fmnist", 1, CKPT / "fmnist.pt", make_fashion_mnist_loaders, 32 if device.type == "cuda" else 24, 500),
+        ("cifar", 3, CKPT / "cifar10.pt", make_cifar10_loaders, 24, 500),
+    ]
+    for ds, channels, ckpt_path, loader_fn, base, n_samples in image_jobs:
+        if not ckpt_path.exists():
+            print("missing", ckpt_path)
+            continue
+        train_loader, test_loader, n_classes = loader_fn(batch_size=64)
+        model = VelocityUNet(
+            in_channels=channels, base_channels=base, channel_mult=(1, 2, 4), n_classes=n_classes,
+        ).to(device)
+        blob = torch.load(ckpt_path, map_location=device, weights_only=False)
+        saved_base = blob.get("meta", {}).get("base_channels")
+        if saved_base and int(saved_base) != base:
+            model = VelocityUNet(
+                in_channels=channels, base_channels=int(saved_base),
+                channel_mult=(1, 2, 4), n_classes=n_classes,
+            ).to(device)
+        try:
+            model.load_state_dict(blob["state_dict"])
+        except RuntimeError:
+            # FMNIST GPU eval was built at base 32; retry that width.
+            model = VelocityUNet(
+                in_channels=channels, base_channels=32, channel_mult=(1, 2, 4), n_classes=n_classes,
+            ).to(device)
+            model.load_state_dict(blob["state_dict"])
+        model.eval()
+        feat = train_feature_extractor(
+            train_loader, device, epochs=1 if device.type == "cpu" else 2, in_channels=channels,
+        )
+        real = []
+        for x, _ in test_loader:
+            real.append(x)
+            if sum(t.shape[0] for t in real) >= 5000:
+                break
+        real = torch.cat(real, 0)[:5000]
+        mu_r, sig_r = feature_stats(feat, real, device=device)
+        torch.manual_seed(0)
+        x0 = torch.randn(n_samples, channels, 32, 32)
+        y = torch.randint(0, n_classes, (n_samples,))
+        chunk = 32 if device.type == "cuda" else 8
+        for w in (1.5, 5.0):
+            adapt = {}
+            for mname in ("M2", "M4"):
+                s, n_taken, nfe = _sample_shared(model, x0, y, cfgs[mname], 16, w, device, chunk)
+                mu_g, sig_g = feature_stats(feat, s, device=device)
+                fd = frechet_distance(mu_r, sig_r, mu_g, sig_g)
+                adapt[mname] = (n_taken, nfe)
+                rows.append({
+                    "dataset": ds, "method": mname, "match": "adaptive",
+                    "w": w, "n": n_taken, "nfe": nfe, "fd": fd,
+                })
+                print(rows[-1], flush=True)
+            for mname, src in (("M1", "M2"), ("M3", "M4")):
+                n_step = max(1, int(round(adapt[src][0])))
+                n_cost = max(1, int(round(adapt[src][1] / 4.0)))
+                seen = set()
+                for match, n in (("steps", n_step), ("nfe", n_cost)):
+                    if n in seen:
+                        continue
+                    seen.add(n)
+                    s, n_taken, nfe = _sample_shared(model, x0, y, cfgs[mname], n, w, device, chunk)
+                    mu_g, sig_g = feature_stats(feat, s, device=device)
+                    fd = frechet_distance(mu_r, sig_r, mu_g, sig_g)
+                    rows.append({
+                        "dataset": ds, "method": mname, "match": match,
+                        "matched_to": src, "w": w, "n": n_taken, "nfe": nfe, "fd": fd,
+                    })
+                    print(rows[-1], flush=True)
+
+    (JSON / "stage_fair.json").write_text(json.dumps(rows, indent=2))
+    return rows
+
+
 def build_report():
     """Assemble REPORT.md from decision JSON + theory."""
     parts = [
@@ -798,7 +943,7 @@ def build_report():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--stage", default="all",
-                        choices=["all", "coupling", "estimator", "step", "guidance", "factorial", "fmnist", "cifar", "report"])
+                        choices=["all", "coupling", "estimator", "step", "guidance", "factorial", "fmnist", "cifar", "fair", "report"])
     parser.add_argument("--steps", type=int, default=3000)
     parser.add_argument("--fmnist-epochs", type=int, default=8)
     parser.add_argument("--fmnist-eval-only", action="store_true")
@@ -862,6 +1007,9 @@ def main():
             coupling, step_mode, step_p, "affine_cap", STAGE6_ALPHA, 0.5,
             epochs=args.fmnist_epochs, skip_train=args.fmnist_eval_only,
         )
+
+    if args.stage in ("all", "fair"):
+        stage_fair()
 
     if args.stage in ("all", "cifar"):
         # M3/M4 stay on the Stage 5-6 affine cap and the Stage 6 alpha.

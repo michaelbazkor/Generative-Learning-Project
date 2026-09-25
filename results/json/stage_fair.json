@@ -1,0 +1,466 @@
+[
+  {
+    "dataset": "pinwheel",
+    "method": "M2",
+    "match": "adaptive",
+    "w": 1.5,
+    "n": 6.0,
+    "nfe": 34.0,
+    "w2": 0.053767523597925825
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M4",
+    "match": "adaptive",
+    "w": 1.5,
+    "n": 6.0,
+    "nfe": 34.0,
+    "w2": 0.05411162726581096
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M1",
+    "match": "steps",
+    "matched_to": "M2",
+    "w": 1.5,
+    "n": 6.0,
+    "nfe": 24.0,
+    "w2": 0.053853619635105175
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M1",
+    "match": "nfe",
+    "matched_to": "M2",
+    "w": 1.5,
+    "n": 8.0,
+    "nfe": 32.0,
+    "w2": 0.05386130052059899
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M3",
+    "match": "steps",
+    "matched_to": "M4",
+    "w": 1.5,
+    "n": 6.0,
+    "nfe": 24.0,
+    "w2": 0.05395927536487581
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M3",
+    "match": "nfe",
+    "matched_to": "M4",
+    "w": 1.5,
+    "n": 8.0,
+    "nfe": 32.0,
+    "w2": 0.054089419014751956
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M2",
+    "match": "adaptive",
+    "w": 3.0,
+    "n": 7.0,
+    "nfe": 40.0,
+    "w2": 0.052656865498050945
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M4",
+    "match": "adaptive",
+    "w": 3.0,
+    "n": 7.0,
+    "nfe": 40.0,
+    "w2": 0.05128541947342452
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M1",
+    "match": "steps",
+    "matched_to": "M2",
+    "w": 3.0,
+    "n": 7.0,
+    "nfe": 28.0,
+    "w2": 0.052726300822570925
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M1",
+    "match": "nfe",
+    "matched_to": "M2",
+    "w": 3.0,
+    "n": 10.0,
+    "nfe": 40.0,
+    "w2": 0.052683182636275784
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M3",
+    "match": "steps",
+    "matched_to": "M4",
+    "w": 3.0,
+    "n": 7.0,
+    "nfe": 28.0,
+    "w2": 0.051962243905290986
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M3",
+    "match": "nfe",
+    "matched_to": "M4",
+    "w": 3.0,
+    "n": 10.0,
+    "nfe": 40.0,
+    "w2": 0.05143004239164304
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M2",
+    "match": "adaptive",
+    "w": 5.0,
+    "n": 7.0,
+    "nfe": 40.0,
+    "w2": 0.05931586316227921
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M4",
+    "match": "adaptive",
+    "w": 5.0,
+    "n": 7.0,
+    "nfe": 40.0,
+    "w2": 0.04600055274181062
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M1",
+    "match": "steps",
+    "matched_to": "M2",
+    "w": 5.0,
+    "n": 7.0,
+    "nfe": 28.0,
+    "w2": 0.05933862731978299
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M1",
+    "match": "nfe",
+    "matched_to": "M2",
+    "w": 5.0,
+    "n": 10.0,
+    "nfe": 40.0,
+    "w2": 0.05932317444309603
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M3",
+    "match": "steps",
+    "matched_to": "M4",
+    "w": 5.0,
+    "n": 7.0,
+    "nfe": 28.0,
+    "w2": 0.050191665602848025
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M3",
+    "match": "nfe",
+    "matched_to": "M4",
+    "w": 5.0,
+    "n": 10.0,
+    "nfe": 40.0,
+    "w2": 0.048780628887936474
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M2",
+    "match": "adaptive",
+    "w": 7.0,
+    "n": 8.0,
+    "nfe": 46.0,
+    "w2": 0.07561010721139608
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M4",
+    "match": "adaptive",
+    "w": 7.0,
+    "n": 8.0,
+    "nfe": 46.0,
+    "w2": 0.045860234851017506
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M1",
+    "match": "steps",
+    "matched_to": "M2",
+    "w": 7.0,
+    "n": 8.0,
+    "nfe": 32.0,
+    "w2": 0.07560258296318344
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M1",
+    "match": "nfe",
+    "matched_to": "M2",
+    "w": 7.0,
+    "n": 12.0,
+    "nfe": 48.0,
+    "w2": 0.07577618528716275
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M3",
+    "match": "steps",
+    "matched_to": "M4",
+    "w": 7.0,
+    "n": 8.0,
+    "nfe": 32.0,
+    "w2": 0.050237081991508656
+  },
+  {
+    "dataset": "pinwheel",
+    "method": "M3",
+    "match": "nfe",
+    "matched_to": "M4",
+    "w": 7.0,
+    "n": 12.0,
+    "nfe": 48.0,
+    "w2": 0.04882671979628491
+  },
+  {
+    "dataset": "fmnist",
+    "method": "M2",
+    "match": "adaptive",
+    "w": 1.5,
+    "n": 12.0,
+    "nfe": 70.0,
+    "fd": 5.102180000598454
+  },
+  {
+    "dataset": "fmnist",
+    "method": "M4",
+    "match": "adaptive",
+    "w": 1.5,
+    "n": 12.0,
+    "nfe": 70.0,
+    "fd": 4.950513005274656
+  },
+  {
+    "dataset": "fmnist",
+    "method": "M1",
+    "match": "steps",
+    "matched_to": "M2",
+    "w": 1.5,
+    "n": 12.0,
+    "nfe": 48.0,
+    "fd": 7.626237599200939
+  },
+  {
+    "dataset": "fmnist",
+    "method": "M1",
+    "match": "nfe",
+    "matched_to": "M2",
+    "w": 1.5,
+    "n": 18.0,
+    "nfe": 72.0,
+    "fd": 5.99002088294548
+  },
+  {
+    "dataset": "fmnist",
+    "method": "M3",
+    "match": "steps",
+    "matched_to": "M4",
+    "w": 1.5,
+    "n": 12.0,
+    "nfe": 48.0,
+    "fd": 7.41019115079375
+  },
+  {
+    "dataset": "fmnist",
+    "method": "M3",
+    "match": "nfe",
+    "matched_to": "M4",
+    "w": 1.5,
+    "n": 18.0,
+    "nfe": 72.0,
+    "fd": 5.8006889216630535
+  },
+  {
+    "dataset": "fmnist",
+    "method": "M2",
+    "match": "adaptive",
+    "w": 5.0,
+    "n": 13.375,
+    "nfe": 78.25,
+    "fd": 12.513524314055497
+  },
+  {
+    "dataset": "fmnist",
+    "method": "M4",
+    "match": "adaptive",
+    "w": 5.0,
+    "n": 13.0,
+    "nfe": 76.0,
+    "fd": 5.243592246477776
+  },
+  {
+    "dataset": "fmnist",
+    "method": "M1",
+    "match": "steps",
+    "matched_to": "M2",
+    "w": 5.0,
+    "n": 13.0,
+    "nfe": 52.0,
+    "fd": 15.550301503052141
+  },
+  {
+    "dataset": "fmnist",
+    "method": "M1",
+    "match": "nfe",
+    "matched_to": "M2",
+    "w": 5.0,
+    "n": 20.0,
+    "nfe": 80.0,
+    "fd": 13.790626127440486
+  },
+  {
+    "dataset": "fmnist",
+    "method": "M3",
+    "match": "steps",
+    "matched_to": "M4",
+    "w": 5.0,
+    "n": 13.0,
+    "nfe": 52.0,
+    "fd": 10.127048279646829
+  },
+  {
+    "dataset": "fmnist",
+    "method": "M3",
+    "match": "nfe",
+    "matched_to": "M4",
+    "w": 5.0,
+    "n": 19.0,
+    "nfe": 76.0,
+    "fd": 7.429263925712851
+  },
+  {
+    "dataset": "cifar",
+    "method": "M2",
+    "match": "adaptive",
+    "w": 1.5,
+    "n": 12.0,
+    "nfe": 70.0,
+    "fd": 6.338183393625863
+  },
+  {
+    "dataset": "cifar",
+    "method": "M4",
+    "match": "adaptive",
+    "w": 1.5,
+    "n": 12.0,
+    "nfe": 70.0,
+    "fd": 6.465501567059713
+  },
+  {
+    "dataset": "cifar",
+    "method": "M1",
+    "match": "steps",
+    "matched_to": "M2",
+    "w": 1.5,
+    "n": 12.0,
+    "nfe": 48.0,
+    "fd": 6.239045717728117
+  },
+  {
+    "dataset": "cifar",
+    "method": "M1",
+    "match": "nfe",
+    "matched_to": "M2",
+    "w": 1.5,
+    "n": 18.0,
+    "nfe": 72.0,
+    "fd": 5.959721442991302
+  },
+  {
+    "dataset": "cifar",
+    "method": "M3",
+    "match": "steps",
+    "matched_to": "M4",
+    "w": 1.5,
+    "n": 12.0,
+    "nfe": 48.0,
+    "fd": 6.267023711869626
+  },
+  {
+    "dataset": "cifar",
+    "method": "M3",
+    "match": "nfe",
+    "matched_to": "M4",
+    "w": 1.5,
+    "n": 18.0,
+    "nfe": 72.0,
+    "fd": 5.997537322593024
+  },
+  {
+    "dataset": "cifar",
+    "method": "M2",
+    "match": "adaptive",
+    "w": 5.0,
+    "n": 13.0,
+    "nfe": 76.0,
+    "fd": 8.283169750268394
+  },
+  {
+    "dataset": "cifar",
+    "method": "M4",
+    "match": "adaptive",
+    "w": 5.0,
+    "n": 12.5625,
+    "nfe": 73.375,
+    "fd": 5.962684337001905
+  },
+  {
+    "dataset": "cifar",
+    "method": "M1",
+    "match": "steps",
+    "matched_to": "M2",
+    "w": 5.0,
+    "n": 13.0,
+    "nfe": 52.0,
+    "fd": 8.583332316756582
+  },
+  {
+    "dataset": "cifar",
+    "method": "M1",
+    "match": "nfe",
+    "matched_to": "M2",
+    "w": 5.0,
+    "n": 19.0,
+    "nfe": 76.0,
+    "fd": 8.661632295757808
+  },
+  {
+    "dataset": "cifar",
+    "method": "M3",
+    "match": "steps",
+    "matched_to": "M4",
+    "w": 5.0,
+    "n": 13.0,
+    "nfe": 52.0,
+    "fd": 6.470589486875966
+  },
+  {
+    "dataset": "cifar",
+    "method": "M3",
+    "match": "nfe",
+    "matched_to": "M4",
+    "w": 5.0,
+    "n": 18.0,
+    "nfe": 72.0,
+    "fd": 6.170592013758831
+  }
+]

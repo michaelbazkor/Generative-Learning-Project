@@ -172,6 +172,43 @@ Mean feature-FD (lower better):
 
 ---
 
+## Matched-cost check
+
+The M4 averages above are biased in two ways.
+
+1. **Step count.** Uniform rows were averaged over a grid that includes $N=4$. Adaptive runs spent 6–8 steps on the pinwheel and 12–13 on images. A mean that mixes those grids charges the uniform sampler for cheap, bad settings the adaptive sampler never used.
+2. **Forwards per step.** A uniform Heun step costs 4 network evaluations. $\Delta t^{\mathrm{prop}}$ often differs from the probe step, so the corrector is evaluated again. Twelve adaptive steps cost about 70 forwards, not 48.
+
+The fair run gives every method the same noise. M2 is compared with M1, and M4 with M3, twice: at the same accepted-step count, and at the uniform $N$ whose 4 forwards per step match the adaptive forward count. $\alpha=0.646$.
+
+Pinwheel $W_2$, forwards matched:
+
+| $w$ | M1 | M2 | M3 | M4 | forwards |
+|---|---|---|---|---|---|
+| 1.5 | 0.054 | 0.054 | 0.054 | 0.054 | 32–34 |
+| 5 | 0.059 | 0.059 | 0.049 | **0.046** | 40 |
+| 7 | 0.076 | 0.076 | 0.049 | **0.046** | 46–48 |
+
+Fashion-MNIST feature-FD, 500 shared samples, forwards matched:
+
+| $w$ | M1 | M2 | M3 | M4 | forwards |
+|---|---|---|---|---|---|
+| 1.5 | 5.99 | **5.10** | 5.80 | **4.95** | 70–72 |
+| 5 | 13.79 | 12.51 | 7.43 | **5.24** | 76–80 |
+
+CIFAR-10 feature-FD, 500 shared samples, forwards matched:
+
+| $w$ | M1 | M2 | M3 | M4 | forwards |
+|---|---|---|---|---|---|
+| 1.5 | **5.96** | 6.34 | 6.00 | 6.47 | 70–72 |
+| 5 | 8.66 | 8.28 | 6.17 | **5.96** | 72–76 |
+
+**What survives.** At $w=1.5$ the four methods are tied on the pinwheel, and on CIFAR the uniform grid with the same forwards is as good as M4 or better. Adaptive step size alone (M2 versus M1) does not win once the forward count matches; the earlier gap was mostly extra steps. The guidance cap is the part that still helps at $w=5$ and $w=7$: M3 and M4 beat M1 and M2 on every dataset there. M4 beats M3 at matched forwards on the pinwheel, Fashion-MNIST, and CIFAR at $w=5$, by a smaller margin than the unmatched tables suggested. It does not beat M3 on CIFAR at $w=1.5$.
+
+Rows: [`results/json/stage_fair.json`](results/json/stage_fair.json).
+
+---
+
 ## Final configuration
 
 | Choice | Winner | Primary justification |
@@ -180,7 +217,7 @@ Mean feature-FD (lower better):
 | Acceleration | Heun material FD | Identity $x_H-x_E=\frac{1}{2}(\Delta t)^2\cdot\hat{a}$ + corr=1 with gap |
 | Step law | $\Delta t=\min(\Delta t^{\mathrm{prop}},1-t)$ with $p=1/2$ | Equal Euler error. A fixed grid won mean 2D $W_2$; M2/M4 still use the proved step |
 | Guidance in M3/M4 | affine $\Vert a\Vert$ cap, $\alpha=0.646$ | Stage 4 rerun prefers $\gamma=0.5$ by a small margin; the factorial keeps the cap |
-| Image primary method | **M4** | Best mean and high-$w$ feature-FD on FMNIST and CIFAR-10 once the budget blend is removed |
+| High-$w$ sampler | affine cap; M4 slightly ahead of M3 at matched forwards | Unmatched M4 averages were inflated by extra steps. The cap, not the step law, is the robust gain |
 
 JSON decisions: `results/json/decision_*.json`.
 
