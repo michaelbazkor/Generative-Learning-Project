@@ -142,12 +142,17 @@ def sample_ode(
     return_trace: bool = False,
     return_traj: bool = False,
 ) -> Tuple[torch.Tensor, StepTrace, Optional[torch.Tensor]]:
-    """Integrate from t=0 to t=1 with exactly n_steps accepted steps."""
+    """Integrate from t=0 to t=1.
+
+    Uniform mode takes exactly n_steps. Adaptive mode uses only
+    dt_prop = eta / (||a||_rms^p + eps), clipped to the time left, and stops at t=1.
+    """
     del return_trace  # always return trace
     device = x0.device
     x = x0.clone()
     t = 0.0
-    if dt_max is None:
+    exact_n = step_mode == "uniform"
+    if dt_max is None and exact_n:
         dt_max = 2.0 / n_steps
     dt_min = 1e-4
     trace = StepTrace()
@@ -155,8 +160,11 @@ def sample_ode(
     prev_a_rms = torch.zeros(x.shape[0], device=device)
     field.reset_nfe()
     use_cfg = field.conditioned and c is not None
+    limit = n_steps if exact_n else 256
 
-    for step_i in range(n_steps):
+    for step_i in range(limit):
+        if t >= 1.0 - 1e-8:
+            break
         n_left = n_steps - step_i
         remaining = 1.0 - t
         t_tensor = torch.full((x.shape[0],), t, device=device, dtype=x.dtype)
@@ -166,10 +174,15 @@ def sample_ode(
         v1_ref = cfg_velocity(v_c1, v_u1, w) if use_cfg else v_c1
 
         # probe step for acceleration (reuse later if dt matches)
-        if n_left == 1:
+        if exact_n and n_left == 1:
             dt_probe = remaining
-        else:
+        elif exact_n:
             dt_probe = min(max(remaining / n_left, dt_min), dt_max)
+        elif float(prev_a_rms.mean()) > 0:
+            mean_prev = float(prev_a_rms.mean().clamp_min(0))
+            dt_probe = max(dt_min, min(eta / (mean_prev ** step_p + eps), remaining))
+        else:
+            dt_probe = min(0.05, remaining)
 
         x_trial = x + dt_probe * v1_ref
         t2 = min(t + dt_probe, 1.0)
@@ -197,17 +210,16 @@ def sample_ode(
         prev_a_rms = a_rms_eff
 
         # --- choose step size ---
-        if n_left == 1:
+        if exact_n and n_left == 1:
             dt = remaining
         elif step_mode == "uniform":
             dt = remaining / n_left
         elif step_mode == "adaptive_p":
             mean_a = float(a_rms_eff.mean().clamp_min(0).item())
-            dt_prop = eta / (mean_a ** step_p + eps)
-            dt_prop = max(dt_min, min(dt_prop, dt_max))
-            dt_uniform = remaining / n_left
-            dt = 0.5 * (dt_prop + dt_uniform)
-            dt = max(dt_min, min(dt, dt_max, remaining))
+            dt = eta / (mean_a ** step_p + eps)
+            if dt_max is not None:
+                dt = min(dt, dt_max)
+            dt = max(dt_min, min(dt, remaining))
         else:
             raise ValueError(step_mode)
 

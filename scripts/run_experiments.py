@@ -182,14 +182,16 @@ def stage_step_law(coupling: str = "ot", seed: int = 0):
     ]
     rows = []
     for name, mode, p in configs:
-        for n_steps in (4, 8):
+        # Uniform is a fixed grid. Adaptive laws use only dt_prop until t=1.
+        n_grid = (4, 8) if mode == "uniform" else (16,)
+        for n_steps in n_grid:
             # swiss w=1
             s, tr, _ = generate_2d(
                 swiss, 2000, n_steps, device, method="heun",
                 step_mode=mode, step_p=p, eta=0.1, guidance_mode="fixed", w=1.0,
             )
             rows.append({
-                "law": name, "dataset": "swiss", "w": 1.0, "n_steps": n_steps,
+                "law": name, "dataset": "swiss", "w": 1.0, "n_steps": len(tr.dt),
                 "w2": eval_w2(s, test_swiss), "mean_dt": float(np.mean(tr.dt)),
             })
             # pinwheel w=5
@@ -199,7 +201,7 @@ def stage_step_law(coupling: str = "ot", seed: int = 0):
                 step_mode=mode, step_p=p, eta=0.1, guidance_mode="fixed", w=5.0,
             )
             rows.append({
-                "law": name, "dataset": "pinwheel", "w": 5.0, "n_steps": n_steps,
+                "law": name, "dataset": "pinwheel", "w": 5.0, "n_steps": len(tr.dt),
                 "w2": eval_w2(s, test_pw), "mean_dt": float(np.mean(tr.dt)),
             })
             print(rows[-2])
@@ -213,8 +215,8 @@ def stage_step_law(coupling: str = "ot", seed: int = 0):
     decision = {
         "winner": winner,
         "scores": scores,
-        "reason": f"Lowest mean W2 across swiss/pinwheel and N=4,8: {scores}",
-        "theory": "Equal Euler error implies p=1/2; written plan used p=1; embedded Heun uses ~1/3.",
+        "reason": f"Lowest mean W2. Adaptive laws use only dt_prop until t=1: {scores}",
+        "theory": "Equal Euler error implies p=1/2 and dt = eta / (||a||_rms^{1/2}+eps), clipped to the time left. No blend with a uniform budget.",
         "map": {"uniform": ("uniform", 0.0), "p1": ("adaptive_p", 1.0), "p0.5": ("adaptive_p", 0.5), "p1_3": ("adaptive_p", 1 / 3)},
     }
     (JSON / "decision_step_law.json").write_text(json.dumps(decision, indent=2))
@@ -321,7 +323,8 @@ def stage_factorial(
     # If step winner was uniform, M2==M1 and M4==M3; still run for completeness.
     rows = []
     for mname, cfg in methods.items():
-        for n_steps in (4, 8, 12, 16):
+        n_grid = (4, 8, 12, 16) if cfg["step_mode"] == "uniform" else (16,)
+        for n_steps in n_grid:
             for w in (1.5, 3.0, 5.0, 7.0):
                 # swiss (uncond: guidance unused)
                 s, tr, _ = generate_2d(
@@ -329,16 +332,16 @@ def stage_factorial(
                     eta=0.1, **{k: v for k, v in cfg.items() if k != "guidance_mode"},
                     guidance_mode="fixed",
                 )
-                rows.append({"method": mname, "dataset": "swiss", "n": n_steps, "w": w,
+                rows.append({"method": mname, "dataset": "swiss", "n": len(tr.dt), "w": w,
                              "w2": eval_w2(s, test_swiss), "nfe": tr.nfe,
                              "mean_a": float(np.mean(tr.a_rms))})
                 labels = torch.randint(0, 5, (2000,))
                 s, tr, traj = generate_2d(
                     pw, 2000, n_steps, device, c=labels, conditioned=True, method="heun",
-                    w=w, eta=0.1, return_traj=(mname in ("M1", "M4") and n_steps == 8 and w == 5.0),
+                    w=w, eta=0.1, return_traj=(mname in ("M1", "M4") and w == 5.0 and (n_steps == 8 or cfg["step_mode"] != "uniform")),
                     **cfg,
                 )
-                rows.append({"method": mname, "dataset": "pinwheel", "n": n_steps, "w": w,
+                rows.append({"method": mname, "dataset": "pinwheel", "n": len(tr.dt), "w": w,
                              "w2": eval_w2(s, test_pw), "nfe": tr.nfe,
                              "mean_a": float(np.mean(tr.a_rms)),
                              "mean_w_eff": float(np.mean(tr.w_eff)),
@@ -378,7 +381,8 @@ def _plot_w2_curves(rows, path: Path):
     for ax, ds in zip(axes, ("swiss", "pinwheel")):
         for m in ("M1", "M2", "M3", "M4"):
             xs, ys = [], []
-            for n in (4, 8, 12, 16):
+            ns = sorted({r["n"] for r in rows if r["method"] == m and r["dataset"] == ds})
+            for n in ns:
                 vals = [r["w2"] for r in rows if r["method"] == m and r["dataset"] == ds and r["n"] == n]
                 if vals:
                     xs.append(n)
@@ -454,6 +458,7 @@ def stage_fmnist(
         blob = torch.load(ckpt_path, map_location=device, weights_only=False)
         # tolerate base_channels mismatch by rebuilding from meta if needed
         model.load_state_dict(blob["state_dict"])
+        model.to(device)
         meta = blob.get("meta", {})
     else:
         steps = epochs * (len(train_loader))
@@ -493,7 +498,8 @@ def stage_fmnist(
     eval_ws = (1.5, 5.0)
     print(f"eval n_samples={n_samples} ns={eval_ns}")
     for mname, cfg in methods.items():
-        for n_steps in eval_ns:
+        n_grid = eval_ns if cfg["step_mode"] == "uniform" else (8,)
+        for n_steps in n_grid:
             for w in eval_ws:
                 field = VelocityField(model, guidance=w, conditioned=True)
                 # generate in chunks to limit memory / wall time
@@ -516,14 +522,14 @@ def stage_fmnist(
                 mu_g, sig_g = feature_stats(feat, x, device=device)
                 fd = frechet_distance(mu_r, sig_r, mu_g, sig_g)
                 row = {
-                    "method": mname, "n": n_steps, "w": w, "fd": fd,
+                    "method": mname, "n": len(tr.dt), "w": w, "fd": fd,
                     "nfe_per_sample": nfe_per,
                     "mean_a": float(np.mean(a_all)), "mean_w_eff": float(np.mean(w_all)),
                     "n_samples": n_samples, "device": str(device),
                 }
                 rows.append(row)
                 print(row)
-                if mname in ("M1", "M4") and n_steps == 8 and w == 5.0:
+                if mname in ("M1", "M4") and w == 5.0 and (n_steps == 8 or cfg["step_mode"] != "uniform"):
                     _save_image_grid(x[:64], FIG / f"fmnist_{mname}_w5_n8.png")
 
     (JSON / "stage6_fmnist.json").write_text(json.dumps(rows, indent=2))
@@ -630,6 +636,7 @@ def stage_cifar(
                 n_classes=n_classes,
             )
         model.load_state_dict(blob["state_dict"])
+        model.to(device)
         meta = saved
     else:
         if steps is None:
@@ -671,7 +678,8 @@ def stage_cifar(
     chunk = 32 if on_gpu else 8
     print(f"eval n_samples={n_samples} ns={eval_ns} alpha={alpha}")
     for mname, cfg in methods.items():
-        for n_steps in eval_ns:
+        n_grid = eval_ns if cfg["step_mode"] == "uniform" else (8,)
+        for n_steps in n_grid:
             for w in eval_ws:
                 field = VelocityField(model, guidance=w, conditioned=True)
                 xs = []
@@ -692,14 +700,14 @@ def stage_cifar(
                 mu_g, sig_g = feature_stats(feat, x, device=device)
                 fd = frechet_distance(mu_r, sig_r, mu_g, sig_g)
                 row = {
-                    "method": mname, "n": n_steps, "w": w, "fd": fd,
+                    "method": mname, "n": len(tr.dt), "w": w, "fd": fd,
                     "nfe_per_sample": nfe_per,
                     "mean_a": float(np.mean(a_all)), "mean_w_eff": float(np.mean(w_all)),
                     "n_samples": n_samples, "device": str(device), "alpha": alpha,
                 }
                 rows.append(row)
                 print(row, flush=True)
-                if mname in ("M1", "M4") and n_steps == 8 and w == 5.0:
+                if mname in ("M1", "M4") and w == 5.0 and (n_steps == 8 or cfg["step_mode"] != "uniform"):
                     _save_rgb_grid(x[:64], FIG / f"cifar_{mname}_w5_n8.png")
 
     (JSON / "stage7_cifar.json").write_text(json.dumps({"meta": meta, "rows": rows}, indent=2))
@@ -821,6 +829,9 @@ def main():
             d = json.loads((JSON / "decision_step_law.json").read_text())
             step_mode, step_p = d["map"][d["winner"]]
 
+    # M2/M4 always use the proved step, even if a fixed grid wins on W2.
+    step_mode, step_p = "adaptive_p", 0.5
+
     if args.stage in ("all", "guidance"):
         d = stage_guidance(coupling=coupling, step_mode=step_mode, step_p=step_p)
         guidance_mode = d["winner"]
@@ -843,12 +854,12 @@ def main():
                 guidance_mode = w
 
     if args.stage in ("all", "factorial"):
-        stage_factorial(coupling, step_mode, step_p, guidance_mode, alpha, gamma)
+        # M3/M4 stay the affine cap. Stage 4 still records which law wins on its own.
+        stage_factorial(coupling, step_mode, step_p, "affine_cap", STAGE6_ALPHA, 0.5)
 
     if args.stage in ("all", "fmnist"):
-        # transfer alpha: rescale is unnecessary with RMS; keep 2D alpha
         stage_fmnist(
-            coupling, step_mode, step_p, guidance_mode, alpha, gamma,
+            coupling, step_mode, step_p, "affine_cap", STAGE6_ALPHA, 0.5,
             epochs=args.fmnist_epochs, skip_train=args.fmnist_eval_only,
         )
 

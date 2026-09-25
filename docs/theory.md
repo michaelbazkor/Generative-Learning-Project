@@ -140,7 +140,7 @@ $$\Delta t_k = \frac{\Vert a_k \Vert^{-1/2}}{\sum_{j=1}^{N}\Vert a_j \Vert^{-1/2
 
 Proof: local Euler error $\frac{1}{2}(\Delta t_k)^2\Vert a_k \Vert$ is the same for every $k$ exactly when $\Delta t_k \propto \Vert a_k \Vert^{-1/2}$, and the display above is that proportion forced to sum to $1$.
 
-The code did **not** use this. Future $\Vert a_j \Vert$ are unknown, so it replaced the sum by a 50/50 mix of $\Delta t^{\mathrm{prop}}$ and the leftover uniform piece $(1-t)/n_{\mathrm{left}}$. That mix is not implied by the error bound. It weakens $\Delta t^{\mathrm{prop}}$ toward a uniform grid and should not be read as part of the proof. The experiments still ran it, only so every method spent exactly $N$ steps.
+The sampler uses $\Delta t^{\mathrm{prop}}$ itself. The only clip is the time left, $\Delta t = \min(\Delta t^{\mathrm{prop}}, 1-t)$, plus a tiny floor so a step cannot vanish. There is no average with $(1-t)/n_{\mathrm{left}}$ and no fixed count $N$. Uniform grids still take exactly $N$ steps; that is a separate baseline, not part of the step law. An earlier run replaced $\Delta t^{\mathrm{prop}}$ by a 50/50 mix with the leftover uniform piece so every method spent the same $N$. That mix is not implied by the error bound and has been removed.
 
 ---
 
@@ -235,5 +235,5 @@ This rule is a heuristic. It does not solve Section 6.1. It also depends on $a$,
 | Equal Euler error $\Rightarrow$ $p = 1/2$ | Proved (Section 5) |
 | $w^{\star} = \max\{w\in[1,w_{\max}]:\Vert a_{\emptyset}+w\cdot a_{\Delta}\Vert_{\mathrm{rms}}\le\alpha\}$ | Definition (Section 6); the clip only evaluates it |
 | $\gamma$ damper without a square on $\Vert a \Vert$ | The plan's formula; not the definition of $w^{\star}$ |
-| $\Delta t_k \propto \Vert a_k \Vert^{-1/2}$ renormalized to sum to $1$ | Follows from equal Euler error plus a fixed budget (Section 5) |
-| 50/50 mix of $\Delta t^{\mathrm{prop}}$ and a uniform leftover | Used in the code so every run spends $N$ steps; not derived |
+| $\Delta t = \min(\Delta t^{\mathrm{prop}}, 1-t)$ | The step the sampler takes (Section 5) |
+| Fixed-$N$ renormalization $\Delta t_k \propto \Vert a_k \Vert^{-1/2}$ summing to $1$ | Follows only if future curvature is known and $N$ is imposed; not used |
